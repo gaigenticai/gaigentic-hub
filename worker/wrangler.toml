@@ -1,0 +1,27 @@
+name = "gaigentic-hub-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-05"
+compatibility_flags = ["nodejs_compat"]
+account_id = "1cdb4c6837f32fc56f2558fcaf137dc0"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gaigentic-hub-db"
+database_id = "c77e5d8a-3c82-4ddc-ab74-d75088e17749"
+
+[ai]
+binding = "AI"
+
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "hub-knowledge"
+
+[vars]
+CHAOSBIRD_API_URL = "https://chaosbird-api.krishnamonsterindian.workers.dev"
+DEFAULT_LLM_PROVIDER = "zai"
+DEFAULT_LLM_MODEL = "glm-4.5"
+ZAI_BASE_URL = "https://api.z.ai/api/coding/paas/v4"
+ADMIN_EMAIL = "krishna@gaigentic.ai"
+
+[triggers]
+crons = ["0 * * * *"]
