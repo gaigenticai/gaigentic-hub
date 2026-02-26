@@ -1,4 +1,4 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Lock } from "lucide-react";
 import type { LLMProvider } from "../types";
 
 interface ProviderSelectorProps {
@@ -57,13 +57,17 @@ export default function ProviderSelector({
             placeholder={PROVIDERS.find((p) => p.id === provider)?.placeholder}
             className="input font-mono text-xs"
           />
+          <p className="mt-1 flex items-center gap-1 text-[10px] text-gray-400">
+            <Lock className="h-3 w-3" />
+            Your key is encrypted with AES-256 and never stored in plain text.
+          </p>
         </div>
       ) : null}
 
       {isShared && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
-          <p className="text-xs text-amber-300/80">
+          <p className="text-xs text-amber-700">
             Using shared z.ai key — may hit rate limits. For optimal results,
             enter your own API key above.
           </p>
