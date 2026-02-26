@@ -379,16 +379,26 @@ console.log(fullOutput);`;
                 https://hub.gaigentic.ai/api/v1/agents/{agent.slug}/run
               </span>
             </div>
-            <div className="space-y-2 rounded-lg bg-gray-50 p-4 text-sm font-mono text-gray-600">
+            <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Headers</h4>
+            <div className="space-y-2 rounded-lg bg-gray-50 p-4 text-sm font-mono text-gray-600 mb-4">
               <div>
-                <span className="text-amber-600">Authorization</span>: Bearer ghk_YOUR_KEY
+                <span className="text-amber-600">Authorization</span>: Bearer ghk_YOUR_KEY <span className="text-gray-400 text-xs">(required)</span>
               </div>
               <div>
                 <span className="text-amber-600">Content-Type</span>: application/json
               </div>
             </div>
+            <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Request Body</h4>
+            <div className="rounded-lg bg-gray-50 p-4 text-sm font-mono text-gray-600">
+              <div className="space-y-1.5">
+                <div><span className="text-purple-600">input</span>: {`{}`} <span className="text-gray-400 text-xs">(required) — key-value pairs for the agent</span></div>
+                <div><span className="text-purple-600">provider</span>: <span className="text-emerald-600">"zai"</span> <span className="text-gray-400 text-xs">(optional) — "zai", "openai", or "anthropic"</span></div>
+                <div><span className="text-purple-600">model</span>: <span className="text-emerald-600">"string"</span> <span className="text-gray-400 text-xs">(optional) — override the default model</span></div>
+                <div><span className="text-purple-600">user_api_key</span>: <span className="text-emerald-600">"string"</span> <span className="text-gray-400 text-xs">(optional) — your own LLM provider key</span></div>
+              </div>
+            </div>
             <p className="mt-3 text-xs text-gray-400">
-              API keys start with <code className="text-gray-500">ghk_</code>. Keys can be scoped to specific agents or work across all agents.
+              API keys start with <code className="text-gray-500">ghk_</code>. Keys can be scoped to specific agents or work across all agents. If you don't provide a <code className="text-gray-500">user_api_key</code>, the shared platform key is used (subject to rate limits).
             </p>
           </div>
 
@@ -411,6 +421,15 @@ data: {"text":"Revenue increased 12% YoY..."}
 
 event: done
 data: {"text":""}`}</CodeBlock>
+
+            <h4 className="mt-4 mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Response Headers</h4>
+            <div className="rounded-lg bg-gray-50 p-4 text-sm font-mono text-gray-600">
+              <div className="space-y-1.5">
+                <div><span className="text-amber-600">X-Audit-Log-Id</span> <span className="text-gray-400 text-xs">— unique ID for this execution (use for feedback)</span></div>
+                <div><span className="text-amber-600">X-Using-Shared-Key</span> <span className="text-gray-400 text-xs">— "true" if no custom LLM key was provided</span></div>
+                <div><span className="text-amber-600">X-Fallback-Provider</span> <span className="text-gray-400 text-xs">— set if primary LLM failed, shows fallback used</span></div>
+              </div>
+            </div>
 
             <div className="mt-4 rounded-lg border border-amber-100 bg-amber-50/60 px-3.5 py-2.5">
               <p className="text-xs text-gray-600">
@@ -440,6 +459,30 @@ data: {"text":""}`}</CodeBlock>
               <div>
                 <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">cURL (save to file)</h4>
                 <CodeBlock lang="bash">{curlSaveExample}</CodeBlock>
+              </div>
+            </div>
+          </div>
+
+          {/* Document Upload */}
+          <div className="card">
+            <h3 className="mb-3 text-lg font-semibold text-gray-900">
+              Document Upload
+            </h3>
+            <p className="mb-3 text-sm text-gray-600">
+              You can upload PDFs, images, and CSVs for AI-powered analysis. Documents are processed with OCR (for scanned files) and text extraction, then fed to the agent as context.
+            </p>
+            <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600 space-y-2">
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-purple-400" />
+                <span><strong>Via Playground:</strong> Drag & drop files in the file upload area, then click Execute. Supports PDF, PNG, JPEG, WebP, CSV.</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-purple-400" />
+                <span><strong>Via API:</strong> Include document content directly in your <code className="text-gray-700 bg-gray-100 px-1 rounded">input</code> JSON. Pre-extract text from your files and pass it as a field value.</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-purple-400" />
+                <span><strong>Max files:</strong> 5 per execution. Scanned PDFs use Tesseract OCR (first 5 pages). Uploaded documents are deleted after 7 days.</span>
               </div>
             </div>
           </div>

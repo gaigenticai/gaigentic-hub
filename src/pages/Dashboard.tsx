@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Key, Play, BarChart3, Plus, Trash2, Clock, MessageCircle } from "lucide-react";
+import { Key, Play, BarChart3, Plus, Trash2, Clock, MessageCircle, X, Calendar } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import type { ApiKey, UsageStats } from "../types";
 import { getMyApiKeys, generateApiKey, revokeApiKey, getMyUsage } from "../services/api";
@@ -14,6 +14,7 @@ export default function Dashboard() {
   const [usage, setUsage] = useState<UsageStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     if (auth.status !== "authenticated") {
@@ -222,30 +223,61 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Chaosbird Channel */}
-      {user.chaosbird_username && (
-        <div className="card border-purple-200">
-          <div className="flex items-center gap-3">
-            <MessageCircle className="h-5 w-5 text-purple-600" />
+      {/* Support — Inline Chat */}
+      <div className="card border-purple-200 overflow-hidden">
+        <div className="flex items-center justify-between">
+          <div className="flex items-start gap-3">
+            <MessageCircle className="mt-0.5 h-5 w-5 text-purple-600" />
             <div>
               <h3 className="font-semibold text-gray-900">
-                Your Support Channel
+                Need Help? Chat with Us
               </h3>
               <p className="text-sm text-gray-600">
-                Chat with our team on Chaosbird:{" "}
-                <a
-                  href="https://chaosbird.app"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-purple-600 hover:underline"
-                >
-                  {user.chaosbird_username}
-                </a>
+                Message Krishna directly — questions, feedback, or enterprise plans.
               </p>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            <a
+              href="https://calendly.com/krishnagai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition-all hover:border-blue-300 hover:shadow-sm"
+            >
+              <Calendar className="h-3.5 w-3.5 text-blue-500" />
+              Book a Demo
+            </a>
+            {chatOpen ? (
+              <button
+                onClick={() => setChatOpen(false)}
+                className="rounded-lg border border-gray-200 p-2 text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : (
+              <button
+                onClick={() => setChatOpen(true)}
+                className="btn-primary text-sm"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Chat Now
+              </button>
+            )}
+          </div>
         </div>
-      )}
+
+        {/* Inline Chaosbird chat iframe */}
+        {chatOpen && (
+          <div className="mt-4 overflow-hidden rounded-xl border border-gray-200">
+            <iframe
+              src="https://chaosbird.app/c/3529a4556f2a4d70a38c042978c7c867?embed=true&theme=light"
+              className="h-[420px] w-full border-0"
+              allow="clipboard-write"
+              title="Chat with Krishna"
+            />
+          </div>
+        )}
+      </div>
 
       {/* Quick Links */}
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
