@@ -59,18 +59,21 @@ export default function Playground() {
 
   const handleExecute = () => {
     if (!selectedAgent || isStreaming) return;
-    try {
-      const input = JSON.parse(inputJson);
-      const documentIds = getReadyDocumentIds();
-      setHasExecuted(true);
-      execute(selectedAgent.slug, input, {
-        provider,
-        userApiKey: apiKey || undefined,
-        documentIds: documentIds.length > 0 ? documentIds : undefined,
-      });
-    } catch {
-      // Invalid JSON
+    const documentIds = getReadyDocumentIds();
+    let input: Record<string, unknown> = {};
+    if (inputJson.trim()) {
+      try {
+        input = JSON.parse(inputJson);
+      } catch {
+        return; // Invalid JSON
+      }
     }
+    setHasExecuted(true);
+    execute(selectedAgent.slug, input, {
+      provider,
+      userApiKey: apiKey || undefined,
+      documentIds: documentIds.length > 0 ? documentIds : undefined,
+    });
   };
 
   const handleReset = () => {
@@ -79,9 +82,11 @@ export default function Playground() {
     setHasExecuted(false);
   };
 
+  const hasDocuments = documents.length > 0;
+  const hasInput = !!inputJson.trim();
   let isValidJson = false;
   try {
-    if (inputJson.trim()) {
+    if (hasInput) {
       JSON.parse(inputJson);
       isValidJson = true;
     }
@@ -158,7 +163,7 @@ export default function Playground() {
             ) : (
               <button
                 onClick={handleExecute}
-                disabled={!isValidJson || !selectedAgent || isUploading}
+                disabled={(!isValidJson && !hasDocuments) || (hasInput && !isValidJson) || !selectedAgent || isUploading}
                 className="btn-primary flex-1"
               >
                 <Play className="h-4 w-4" />
