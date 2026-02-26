@@ -80,6 +80,9 @@ export default function Landing() {
             >
               gaigentic.ai
             </a>
+            <Link to="/login" className="hidden rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 sm:block">
+              Log In
+            </Link>
             <Link to="/signup" className="btn-primary">
               Get Started Free
               <ArrowRight className="h-4 w-4" />

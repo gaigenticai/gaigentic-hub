@@ -113,9 +113,14 @@ export default function Layout() {
                 </button>
               </>
             ) : (
-              <Link to="/signup" className="btn-primary text-sm">
-                Get Started Free
-              </Link>
+              <>
+                <Link to="/login" className="text-sm font-medium text-gray-500 hover:text-gray-900">
+                  Log In
+                </Link>
+                <Link to="/signup" className="btn-primary text-sm">
+                  Get Started Free
+                </Link>
+              </>
             )}
             <button
               className="md:hidden text-gray-500"

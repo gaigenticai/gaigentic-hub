@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import Landing from "./pages/Landing";
 import Signup from "./pages/Signup";
+import Login from "./pages/Login";
 import AgentCatalog from "./pages/AgentCatalog";
 import AgentDetail from "./pages/AgentDetail";
 import Playground from "./pages/Playground";
@@ -14,6 +15,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/login" element={<Login />} />
       <Route element={<Layout />}>
         <Route path="/agents" element={<AgentCatalog />} />
         <Route path="/agents/:slug" element={<AgentDetail />} />

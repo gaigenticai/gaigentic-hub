@@ -365,8 +365,8 @@ export default function Signup() {
 
           <p className="text-center text-xs text-gray-500">
             Already have an account?{" "}
-            <Link to="/agents" className="text-purple-600 hover:underline">
-              Browse agents
+            <Link to="/login" className="text-purple-600 hover:underline">
+              Log in
             </Link>
           </p>
         </form>

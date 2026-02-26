@@ -18,7 +18,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (auth.status !== "authenticated") {
-      navigate("/signup");
+      navigate("/login");
       return;
     }
     Promise.all([getMyApiKeys(), getMyUsage()])

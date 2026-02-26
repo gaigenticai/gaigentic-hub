@@ -22,7 +22,7 @@ export default function Settings() {
   const [saved, setSaved] = useState(false);
 
   if (auth.status !== "authenticated") {
-    navigate("/signup");
+    navigate("/login");
     return null;
   }
 
