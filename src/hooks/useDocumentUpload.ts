@@ -5,6 +5,69 @@ import { uploadDocument } from "../services/api";
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_FILES = 5;
 
+/**
+ * Extract text from a PDF using pdf.js text layer.
+ * For scanned PDFs, renders pages to canvas and runs Tesseract OCR.
+ */
+async function extractPdfText(file: File): Promise<string> {
+  const pdfjsLib = await import("pdfjs-dist");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pageTexts: string[] = [];
+
+  const maxPages = Math.min(pdf.numPages, 5);
+  for (let i = 1; i <= maxPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const text = textContent.items
+      .map((item) => ("str" in item ? item.str : ""))
+      .join(" ")
+      .trim();
+    if (text) pageTexts.push(text);
+  }
+
+  const fullText = pageTexts.join("\n\n");
+
+  // If text layer had meaningful content, use it
+  if (fullText.length > 50) {
+    return fullText;
+  }
+
+  // Scanned PDF — render pages to canvas and OCR with Tesseract
+  try {
+    const Tesseract = await import("tesseract.js");
+    const ocrTexts: string[] = [];
+
+    for (let i = 1; i <= maxPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 2.0 }); // Higher scale = better OCR
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) continue;
+
+      await page.render({ canvasContext: ctx, viewport, canvas } as never).promise;
+
+      const result = await Tesseract.recognize(canvas, "eng");
+      if (result.data.text.trim()) {
+        ocrTexts.push(result.data.text.trim());
+      }
+      canvas.remove();
+    }
+
+    if (ocrTexts.length > 0) {
+      return ocrTexts.join("\n\n");
+    }
+  } catch {
+    // Tesseract failed — return whatever text layer we got
+  }
+
+  return fullText;
+}
+
 export function useDocumentUpload() {
   const [documents, setDocuments] = useState<DocumentUpload[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -23,10 +86,8 @@ export function useDocumentUpload() {
       setIsUploading(true);
 
       for (const file of fileArray) {
-        // Create a temporary ID for tracking
         const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-        // Add to state immediately
         setDocuments((prev) => [
           ...prev,
           {
@@ -40,26 +101,34 @@ export function useDocumentUpload() {
         ]);
 
         try {
-          // Step 1: Client-side OCR with Tesseract.js for images
           let clientText: string | undefined;
+
           if (IMAGE_TYPES.includes(file.type)) {
+            // Image OCR with Tesseract
             try {
               const Tesseract = await import("tesseract.js");
               const result = await Tesseract.recognize(file, "eng");
               clientText = result.data.text;
               updateDoc(tempId, { clientText, status: "uploading" });
             } catch {
-              // Tesseract failed — continue without client text
+              updateDoc(tempId, { status: "uploading" });
+            }
+          } else if (file.type === "application/pdf") {
+            // PDF text extraction (text layer + OCR fallback)
+            try {
+              const text = await extractPdfText(file);
+              if (text) clientText = text;
+              updateDoc(tempId, { clientText, status: "uploading" });
+            } catch {
               updateDoc(tempId, { status: "uploading" });
             }
           } else {
             updateDoc(tempId, { status: "uploading" });
           }
 
-          // Step 2: Upload to server
+          // Upload to server
           const result = await uploadDocument(file, clientText);
 
-          // Replace temp doc with server response
           setDocuments((prev) =>
             prev.map((d) =>
               d.id === tempId

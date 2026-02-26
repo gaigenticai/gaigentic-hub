@@ -80,18 +80,19 @@ documents.post("/upload", async (c) => {
   let extractionStatus = "completed";
   let extractionError: string | null = null;
 
+  let extractionMethod = "";
   try {
-    const result = await processDocument(c.env.AI, fileBytes, file.type);
+    const result = await processDocument(c.env.AI, fileBytes, file.type, c.env.ZAI_API_KEY, c.env.ZAI_BASE_URL);
     serverText = result.text;
+    extractionMethod = result.method;
 
     if (!serverText && clientText) {
-      // Server extraction returned empty, fall back to client text
       serverText = clientText;
+      extractionMethod += "+client-fallback";
     }
   } catch (err) {
     extractionError = err instanceof Error ? err.message : "Extraction failed";
     extractionStatus = clientText ? "completed" : "failed";
-    // Fall back to client-extracted text
     serverText = clientText || "";
   }
 
@@ -101,7 +102,7 @@ documents.post("/upload", async (c) => {
      SET server_extracted_text = ?, extraction_status = ?, extraction_error = ?
      WHERE id = ?`,
   )
-    .bind(serverText || null, extractionStatus, extractionError, docId)
+    .bind(serverText || null, extractionStatus, extractionError || extractionMethod || null, docId)
     .run();
 
   // Determine the best available text
