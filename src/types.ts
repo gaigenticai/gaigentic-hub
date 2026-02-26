@@ -176,6 +176,21 @@ export interface Feedback {
 }
 
 // ==========================================
+// Document Upload Types
+// ==========================================
+
+export interface DocumentUpload {
+  id: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  extractedText: string | null;
+  status: "uploading" | "extracting" | "ready" | "error";
+  error?: string;
+  clientText?: string;
+}
+
+// ==========================================
 // Usage Types
 // ==========================================
 

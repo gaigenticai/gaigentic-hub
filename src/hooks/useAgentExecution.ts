@@ -90,6 +90,7 @@ export function useAgentExecution() {
         provider?: LLMProvider;
         model?: string;
         userApiKey?: string;
+        documentIds?: string[];
       },
     ): Promise<{ auditLogId: string | null }> => {
       // Abort previous execution

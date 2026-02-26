@@ -3,6 +3,7 @@ export interface Env {
   DB: D1Database;
   AI: Ai;
   VECTORIZE: VectorizeIndex;
+  DOCUMENTS: R2Bucket;
 
   // Secrets (set via wrangler secret put)
   SESSION_SECRET: string;
@@ -139,6 +140,22 @@ export interface AuditLogRow {
   llm_model: string;
   temperature: number | null;
   max_tokens: number | null;
+  created_at: string;
+}
+
+export interface DocumentUploadRow {
+  id: string;
+  user_id: string | null;
+  agent_slug: string | null;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  r2_key: string;
+  client_extracted_text: string | null;
+  server_extracted_text: string | null;
+  extraction_status: string;
+  extraction_error: string | null;
+  auto_ingested: number;
   created_at: string;
 }
 

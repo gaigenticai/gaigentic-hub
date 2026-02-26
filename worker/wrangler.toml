@@ -23,5 +23,9 @@ DEFAULT_LLM_MODEL = "glm-4.5"
 ZAI_BASE_URL = "https://api.z.ai/api/coding/paas/v4"
 ADMIN_EMAIL = "krishna@gaigentic.ai"
 
+[[r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "gaigentic-documents"
+
 [triggers]
 crons = ["0 * * * *"]

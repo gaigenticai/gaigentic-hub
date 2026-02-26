@@ -101,6 +101,7 @@ playground.post("/execute", async (c) => {
     provider?: string;
     model?: string;
     user_api_key?: string;
+    document_ids?: string[];
   }>();
 
   if (!body.agent_slug || !body.input) {
@@ -233,9 +234,42 @@ playground.post("/execute", async (c) => {
     // RAG is optional — continue without it
   }
 
+  // Fetch document context if document_ids provided
+  let documentContext = "";
+  if (body.document_ids && body.document_ids.length > 0) {
+    const placeholders = body.document_ids.map(() => "?").join(",");
+    const docs = await c.env.DB.prepare(
+      `SELECT file_name, server_extracted_text, client_extracted_text
+       FROM document_uploads WHERE id IN (${placeholders}) AND extraction_status = 'completed'`,
+    )
+      .bind(...body.document_ids)
+      .all<{
+        file_name: string;
+        server_extracted_text: string | null;
+        client_extracted_text: string | null;
+      }>();
+
+    if (docs.results.length > 0) {
+      const docTexts = docs.results
+        .map((d) => {
+          const text = d.server_extracted_text || d.client_extracted_text || "";
+          return `Document: ${d.file_name}\n---\n${text}`;
+        })
+        .join("\n---\n");
+      documentContext =
+        "\n\n=== UPLOADED DOCUMENTS ===\n" +
+        docTexts +
+        "\n=== END DOCUMENTS ===\n";
+    }
+  }
+
   // Build messages
   const systemPrompt =
-    agent.system_prompt + ragContext + "\n\n" + VISUAL_OUTPUT_INSTRUCTIONS;
+    agent.system_prompt +
+    ragContext +
+    documentContext +
+    "\n\n" +
+    VISUAL_OUTPUT_INSTRUCTIONS;
 
   const inputText = JSON.stringify(body.input, null, 2);
   const messages = [

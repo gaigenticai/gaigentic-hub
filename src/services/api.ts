@@ -253,6 +253,40 @@ export async function saveLLMConfig(
 }
 
 // ==========================================
+// Document Upload API
+// ==========================================
+
+export async function uploadDocument(
+  file: File,
+  clientText?: string,
+  agentSlug?: string,
+): Promise<{
+  id: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  extracted_text: string | null;
+  status: string;
+  error: string | null;
+}> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (clientText) formData.append("client_text", clientText);
+  if (agentSlug) formData.append("agent_slug", agentSlug);
+
+  const token = getSessionToken();
+  const res = await fetch(`${API_BASE}/documents/upload`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  const data = await res.json() as Record<string, unknown>;
+  if (!res.ok) throw new Error((data as { error?: string }).error || "Upload failed");
+  return (data as { document: { id: string; file_name: string; file_type: string; file_size: number; extracted_text: string | null; status: string; error: string | null } }).document;
+}
+
+// ==========================================
 // Playground API (SSE Streaming)
 // ==========================================
 
@@ -263,6 +297,7 @@ export function executeAgent(
     provider?: LLMProvider;
     model?: string;
     userApiKey?: string;
+    documentIds?: string[];
   },
 ): {
   stream: ReadableStream<string>;
@@ -292,6 +327,7 @@ export function executeAgent(
             provider: options?.provider,
             model: options?.model,
             user_api_key: options?.userApiKey,
+            document_ids: options?.documentIds,
           }),
           signal: controller.signal,
         });

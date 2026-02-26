@@ -4,9 +4,11 @@ import { Play, Square, RotateCcw, AlertCircle } from "lucide-react";
 import type { Agent, LLMProvider } from "../types";
 import { getAgents, getAgent } from "../services/api";
 import { useAgentExecution } from "../hooks/useAgentExecution";
+import { useDocumentUpload } from "../hooks/useDocumentUpload";
 import JsonEditor from "../components/JsonEditor";
 import ResponseViewer from "../components/ResponseViewer";
 import ProviderSelector from "../components/ProviderSelector";
+import FileUpload from "../components/FileUpload";
 import FeedbackWidget from "../components/FeedbackWidget";
 import ContactCTA from "../components/ContactCTA";
 
@@ -22,6 +24,15 @@ export default function Playground() {
 
   const { blocks, isStreaming, error, auditLogId, execute, stop, reset } =
     useAgentExecution();
+
+  const {
+    documents,
+    isUploading,
+    addFiles,
+    removeFile,
+    getReadyDocumentIds,
+    clear: clearDocuments,
+  } = useDocumentUpload();
 
   // Load agents list
   useEffect(() => {
@@ -50,10 +61,12 @@ export default function Playground() {
     if (!selectedAgent || isStreaming) return;
     try {
       const input = JSON.parse(inputJson);
+      const documentIds = getReadyDocumentIds();
       setHasExecuted(true);
       execute(selectedAgent.slug, input, {
         provider,
         userApiKey: apiKey || undefined,
+        documentIds: documentIds.length > 0 ? documentIds : undefined,
       });
     } catch {
       // Invalid JSON
@@ -62,6 +75,7 @@ export default function Playground() {
 
   const handleReset = () => {
     reset();
+    clearDocuments();
     setHasExecuted(false);
   };
 
@@ -82,8 +96,8 @@ export default function Playground() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">API Playground</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Test agents live with sample data. Responses stream in real-time with
-          visual dashboards.
+          Test agents live with sample data. Upload documents for AI-powered
+          analysis. Responses stream in real-time with visual dashboards.
         </p>
       </div>
 
@@ -118,6 +132,14 @@ export default function Playground() {
             placeholder='{"key": "value"}'
           />
 
+          {/* File Upload */}
+          <FileUpload
+            documents={documents}
+            isUploading={isUploading}
+            onAddFiles={addFiles}
+            onRemoveFile={removeFile}
+          />
+
           {/* Provider */}
           <ProviderSelector
             provider={provider}
@@ -136,11 +158,16 @@ export default function Playground() {
             ) : (
               <button
                 onClick={handleExecute}
-                disabled={!isValidJson || !selectedAgent}
+                disabled={!isValidJson || !selectedAgent || isUploading}
                 className="btn-primary flex-1"
               >
                 <Play className="h-4 w-4" />
                 Execute
+                {documents.length > 0 && (
+                  <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">
+                    +{documents.filter((d) => d.status === "ready").length} docs
+                  </span>
+                )}
               </button>
             )}
             <button onClick={handleReset} className="btn-secondary">
@@ -182,10 +209,7 @@ export default function Playground() {
           {executionDone && (
             <div className="space-y-4">
               <FeedbackWidget auditLogId={auditLogId} />
-              <ContactCTA
-                compact
-                agentColor={selectedAgent?.color}
-              />
+              <ContactCTA compact agentColor={selectedAgent?.color} />
             </div>
           )}
         </div>

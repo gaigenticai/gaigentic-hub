@@ -12,6 +12,7 @@ import ragRoutes from "./routes/rag";
 import usageRoutes from "./routes/usage";
 import healthRoutes from "./routes/health";
 import feedbackRoutes from "./routes/feedback";
+import documentRoutes from "./routes/documents";
 
 // External API imports
 import { hashApiKey } from "./routes/apikeys";
@@ -66,6 +67,7 @@ app.route("/rag", ragRoutes);
 app.route("/usage", usageRoutes);
 app.route("/feedback", feedbackRoutes);
 app.route("/health", healthRoutes);
+app.route("/documents", documentRoutes);
 
 // ==========================================
 // External API: /v1/agents/:slug/run
