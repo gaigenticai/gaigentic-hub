@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Play, Square, RotateCcw, AlertCircle, Info } from "lucide-react";
+import { Play, Square, RotateCcw, AlertCircle, Info, Copy, Download, Check } from "lucide-react";
 import type { Agent, LLMProvider } from "../types";
 import { getAgents, getAgent } from "../services/api";
 import { useAgentExecution } from "../hooks/useAgentExecution";
@@ -22,8 +22,9 @@ export default function Playground() {
   const [apiKey, setApiKey] = useState("");
   const [hasExecuted, setHasExecuted] = useState(false);
 
-  const { blocks, isStreaming, error, auditLogId, execute, stop, reset } =
+  const { blocks, isStreaming, error, auditLogId, execute, stop, reset, getRawText } =
     useAgentExecution();
+  const [copied, setCopied] = useState(false);
 
   const {
     documents,
@@ -76,6 +77,28 @@ export default function Playground() {
     reset();
     clearDocuments();
     setHasExecuted(false);
+    setCopied(false);
+  };
+
+  const handleCopyRaw = () => {
+    const raw = getRawText();
+    if (!raw) return;
+    navigator.clipboard.writeText(raw).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleDownloadRaw = () => {
+    const raw = getRawText();
+    if (!raw) return;
+    const blob = new Blob([raw], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${selectedAgent?.slug || "response"}-${new Date().toISOString().slice(0, 10)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const hasDocuments = documents.length > 0;
@@ -193,12 +216,34 @@ export default function Playground() {
           <div className="card min-h-[400px] overflow-hidden">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-900">Response</h3>
-              {isStreaming && (
-                <span className="flex items-center gap-1.5 text-xs text-purple-600">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-brand-400" />
-                  Streaming...
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {executionDone && (
+                  <>
+                    <button
+                      onClick={handleCopyRaw}
+                      className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                      title="Copy raw output"
+                    >
+                      {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                      {copied ? "Copied" : "Copy Raw"}
+                    </button>
+                    <button
+                      onClick={handleDownloadRaw}
+                      className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                      title="Download as Markdown"
+                    >
+                      <Download className="h-3 w-3" />
+                      Download
+                    </button>
+                  </>
+                )}
+                {isStreaming && (
+                  <span className="flex items-center gap-1.5 text-xs text-purple-600">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-brand-400" />
+                    Streaming...
+                  </span>
+                )}
+              </div>
             </div>
 
             {error && (

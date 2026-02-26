@@ -13,6 +13,7 @@ import usageRoutes from "./routes/usage";
 import healthRoutes from "./routes/health";
 import feedbackRoutes from "./routes/feedback";
 import documentRoutes from "./routes/documents";
+import executionRoutes from "./routes/executions";
 
 // External API imports
 import { hashApiKey } from "./routes/apikeys";
@@ -68,6 +69,7 @@ app.route("/usage", usageRoutes);
 app.route("/feedback", feedbackRoutes);
 app.route("/health", healthRoutes);
 app.route("/documents", documentRoutes);
+app.route("/executions", executionRoutes);
 
 // ==========================================
 // Chat proxy: send message to Krishna via Chaosbird

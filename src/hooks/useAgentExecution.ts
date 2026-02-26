@@ -161,5 +161,7 @@ export function useAgentExecution() {
     rawTextRef.current = "";
   }, []);
 
-  return { blocks, isStreaming, error, auditLogId, execute, stop, reset };
+  const getRawText = useCallback(() => rawTextRef.current, []);
+
+  return { blocks, isStreaming, error, auditLogId, execute, stop, reset, getRawText };
 }
