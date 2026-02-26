@@ -4,8 +4,8 @@ import type { Env, UserRow } from "../types";
 import { createSessionToken, verifySessionTokenAllowExpired } from "../session";
 import { createAdminToken } from "../adminAuth";
 import { checkRateLimit } from "../rateLimit";
-import { createChaosbirdAccount, generateChaosbirdUsername } from "../chaosbird";
-import { AUTH_RATE_LIMIT, AUTH_RATE_WINDOW_MS } from "../constants";
+import { createChaosbirdAccount, generateChaosbirdUsername, sendLeadNotification, sendWelcomeMessage } from "../chaosbird";
+import { AUTH_RATE_LIMIT, AUTH_RATE_WINDOW_MS, TRIAL_DURATION_DAYS, isBlockedEmailDomain } from "../constants";
 
 const auth = new Hono<{ Bindings: Env }>();
 
@@ -31,6 +31,13 @@ auth.post("/signup", async (c) => {
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return c.json({ error: "Valid email required" }, 400);
   }
+  const blockedDomain = isBlockedEmailDomain(email);
+  if (blockedDomain) {
+    return c.json(
+      { error: `Please use your work email. ${blockedDomain} addresses are not accepted.` },
+      400,
+    );
+  }
   if (!companyName || companyName.length < 2 || companyName.length > 100) {
     return c.json({ error: "Company name must be 2-100 characters" }, 400);
   }
@@ -51,16 +58,38 @@ auth.post("/signup", async (c) => {
 
   // Insert user
   const user = await c.env.DB.prepare(
-    `INSERT INTO users (name, email, company_name, company_slug, chaosbird_username, chaosbird_account_created)
-     VALUES (?, ?, ?, ?, ?, ?)
-     RETURNING id, name, email, company_name, company_slug, chaosbird_username, role, created_at`,
+    `INSERT INTO users (name, email, company_name, company_slug, chaosbird_username, chaosbird_account_created, trial_expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now', '+' || ? || ' days'))
+     RETURNING id, name, email, company_name, company_slug, chaosbird_username, role, trial_expires_at, created_at`,
   )
-    .bind(name, email, companyName, companySlug, chaosbird.username, chaosbird.success ? 1 : 0)
+    .bind(name, email, companyName, companySlug, chaosbird.username, chaosbird.success ? 1 : 0, TRIAL_DURATION_DAYS)
     .first<UserRow>();
 
   if (!user) return c.json({ error: "Failed to create account" }, 500);
 
   const sessionToken = await createSessionToken(email, c.env.SESSION_SECRET);
+
+  // Send lead notification to Krishna on Chaosbird (non-blocking)
+  if (chaosbird.success && c.env.CHAOSBIRD_ADMIN_TOKEN) {
+    c.executionCtx.waitUntil(
+      sendLeadNotification(
+        c.env.CHAOSBIRD_API_URL,
+        c.env.CHAOSBIRD_ADMIN_TOKEN,
+        c.env.CHAOSBIRD_ADMIN_USERNAME,
+        { name: name!, email: email!, company: companyName!, chaosbirdUsername: chaosbird.username },
+      ),
+    );
+
+    // Send welcome message to the new user's Chaosbird inbox (non-blocking)
+    c.executionCtx.waitUntil(
+      sendWelcomeMessage(
+        c.env.CHAOSBIRD_API_URL,
+        c.env.CHAOSBIRD_ADMIN_TOKEN,
+        chaosbird.username,
+        name!,
+      ),
+    );
+  }
 
   return c.json({
     user: {
@@ -71,6 +100,7 @@ auth.post("/signup", async (c) => {
       company_slug: user.company_slug,
       chaosbird_username: user.chaosbird_username,
       role: user.role,
+      trial_expires_at: user.trial_expires_at,
       created_at: user.created_at,
     },
     session_token: sessionToken,
@@ -125,6 +155,7 @@ auth.post("/login", async (c) => {
       company_slug: user.company_slug,
       chaosbird_username: user.chaosbird_username,
       role: user.role,
+      trial_expires_at: user.trial_expires_at,
       created_at: user.created_at,
     },
     session_token: sessionToken,

@@ -78,6 +78,21 @@ export default function Layout() {
           </nav>
 
           <div className="flex items-center gap-3">
+            {isAuthenticated && (() => {
+              const t = auth.user?.trial_expires_at;
+              if (!t) return null;
+              const d = Math.max(0, Math.ceil((new Date(t).getTime() - Date.now()) / 86400000));
+              if (d > 7) return null;
+              return (
+                <span className={`hidden sm:inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  d <= 0 ? "bg-red-100 text-red-700" :
+                  d <= 3 ? "bg-amber-100 text-amber-700" :
+                  "bg-blue-100 text-blue-700"
+                }`}>
+                  {d <= 0 ? "Trial expired" : `${d}d left`}
+                </span>
+              );
+            })()}
             {isAuthenticated ? (
               <>
                 <Link

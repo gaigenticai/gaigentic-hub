@@ -15,7 +15,7 @@ export default function ResponseViewer({
   if (blocks.length === 0 && !isStreaming) return null;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 overflow-x-auto">
       {blocks.map((block, i) => {
         switch (block.type) {
           case "text":

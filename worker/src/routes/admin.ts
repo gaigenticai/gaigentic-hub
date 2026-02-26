@@ -135,6 +135,7 @@ admin.get("/signup/:id", async (c) => {
       company_slug: user.company_slug,
       chaosbird_username: user.chaosbird_username,
       role: user.role,
+      trial_expires_at: user.trial_expires_at,
       created_at: user.created_at,
     },
     usage: usage.results,
@@ -170,7 +171,7 @@ admin.post("/contact", async (c) => {
   return c.json({ success: sent });
 });
 
-// POST /admin/extend-trial — Extend user's API key expiry
+// POST /admin/extend-trial — Extend user's trial + API key expiry
 admin.post("/extend-trial", async (c) => {
   const body = await c.req.json<{ user_id: string; days: number }>();
 
@@ -178,9 +179,20 @@ admin.post("/extend-trial", async (c) => {
     return c.json({ error: "user_id and days (1-90) required" }, 400);
   }
 
+  // Extend API key expiry
   await c.env.DB.prepare(
     `UPDATE api_keys SET expires_at = datetime(expires_at, '+' || ? || ' days')
      WHERE user_id = ? AND revoked = 0`,
+  )
+    .bind(body.days, body.user_id)
+    .run();
+
+  // Extend trial expiry (start from now if already expired)
+  await c.env.DB.prepare(
+    `UPDATE users SET trial_expires_at = datetime(
+       CASE WHEN trial_expires_at > datetime('now') THEN trial_expires_at ELSE datetime('now') END,
+       '+' || ? || ' days'
+     ) WHERE id = ?`,
   )
     .bind(body.days, body.user_id)
     .run();

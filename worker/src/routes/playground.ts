@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Env, UserRow, AgentRow, LlmConfigRow } from "../types";
 import { getSessionUser } from "../session";
 import { checkRateLimit } from "../rateLimit";
-import { createProvider, getDefaultProvider, getDefaultModel } from "../llm";
+import { createProvider, getDefaultProvider, getDefaultModel, getFallbackProvider } from "../llm";
 import { queryKnowledge } from "../rag";
 import { decrypt } from "../encryption";
 import { VISUAL_OUTPUT_INSTRUCTIONS } from "../visualEngine";
@@ -126,10 +126,18 @@ playground.post("/execute", async (c) => {
   let isSandbox = false;
 
   if (email) {
-    const user = await c.env.DB.prepare("SELECT id FROM users WHERE email = ?")
+    const user = await c.env.DB.prepare("SELECT id, trial_expires_at, role FROM users WHERE email = ?")
       .bind(email)
-      .first<UserRow>();
+      .first<Pick<UserRow, 'id' | 'trial_expires_at' | 'role'>>();
     userId = user?.id || null;
+
+    // Check trial expiry (time-based, skip for admins)
+    if (user?.trial_expires_at && user.role !== "admin" && new Date(user.trial_expires_at) < new Date()) {
+      return c.json(
+        { error: "Your 14-day trial has expired. Contact us to discuss plans.", trial_expired: true },
+        403,
+      );
+    }
 
     // Check trial quota
     if (userId) {
@@ -296,14 +304,38 @@ playground.post("/execute", async (c) => {
   // Pre-generate audit log ID so we can return it in headers
   const auditLogId = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
 
-  // Stream response
+  // Stream response (with Workers AI fallback)
+  let usedFallback = false;
+  let actualProvider = providerName;
+  let actualModel = model;
+
+  let stream: ReadableStream;
   try {
-    const stream = await provider.stream({
+    stream = await provider.stream({
       model,
       messages,
       max_tokens: maxTokens,
       temperature,
     });
+  } catch (primaryErr) {
+    // Primary provider failed — try Workers AI fallback
+    try {
+      const fallback = getFallbackProvider(c.env);
+      stream = await fallback.stream({
+        model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+        messages,
+        max_tokens: maxTokens,
+        temperature,
+      });
+      usedFallback = true;
+      actualProvider = "workers-ai";
+      actualModel = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+    } catch (fallbackErr) {
+      throw primaryErr; // Both failed, throw original error
+    }
+  }
+
+  try {
 
     // Tee the stream to capture output for audit
     const { readable, getText } = teeStreamCapture(stream);
@@ -317,7 +349,7 @@ playground.post("/execute", async (c) => {
            VALUES (?, ?, ?, ?, ?, ?, 'success')
            RETURNING id`,
         )
-          .bind(userId, agent.id, agent.slug, providerName, model, isSandbox ? 1 : 0)
+          .bind(userId, agent.id, agent.slug, actualProvider, actualModel, isSandbox ? 1 : 0)
           .first<{ id: string }>();
 
         // Wait for stream to complete, then insert audit log
@@ -338,8 +370,8 @@ playground.post("/execute", async (c) => {
             outputText,
             ragSources.length > 0 ? JSON.stringify(ragSources) : null,
             promptHash,
-            providerName,
-            model,
+            actualProvider,
+            actualModel,
             temperature,
             maxTokens,
           )
@@ -358,6 +390,9 @@ playground.post("/execute", async (c) => {
 
     if (usingSharedKey) {
       headers["X-Using-Shared-Key"] = "true";
+    }
+    if (usedFallback) {
+      headers["X-Fallback-Provider"] = "workers-ai";
     }
 
     return new Response(readable, { headers });

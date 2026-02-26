@@ -34,7 +34,7 @@ export default function ChartRenderer({ config }: { config: ChartConfig }) {
   const { type, title, xKey, series, data } = config;
 
   return (
-    <div className="card my-4">
+    <div className="card my-4 overflow-hidden">
       {title && (
         <h4 className="mb-4 text-sm font-semibold text-gray-900">{title}</h4>
       )}

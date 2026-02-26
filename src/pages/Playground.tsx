@@ -101,7 +101,7 @@ export default function Playground() {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
         {/* Left: Input */}
         <div className="space-y-4">
           {/* Agent selector */}
@@ -178,7 +178,7 @@ export default function Playground() {
 
         {/* Right: Output */}
         <div className="space-y-4">
-          <div className="card min-h-[400px]">
+          <div className="card min-h-[400px] overflow-hidden">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-900">Response</h3>
               {isStreaming && (

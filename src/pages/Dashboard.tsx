@@ -55,6 +55,12 @@ export default function Dashboard() {
     (k) => !k.revoked && new Date(k.expires_at) > new Date(),
   );
 
+  const trialExpiresAt = user.trial_expires_at ? new Date(user.trial_expires_at) : null;
+  const daysRemaining = trialExpiresAt
+    ? Math.max(0, Math.ceil((trialExpiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : null;
+  const trialExpired = daysRemaining !== null && daysRemaining <= 0;
+
   return (
     <div>
       <div className="mb-8">
@@ -62,7 +68,16 @@ export default function Dashboard() {
           Welcome, {user.name}
         </h1>
         <p className="mt-1 text-sm text-gray-600">
-          {user.company_name} — Your no-obligation trial is active
+          {user.company_name} —{" "}
+          {trialExpired ? (
+            <span className="font-medium text-red-600">Trial expired. Contact us for enterprise access.</span>
+          ) : daysRemaining !== null ? (
+            <span className={daysRemaining <= 3 ? "font-medium text-amber-600" : ""}>
+              {daysRemaining} day{daysRemaining !== 1 ? "s" : ""} remaining in your trial
+            </span>
+          ) : (
+            "Your no-obligation trial is active"
+          )}
         </p>
       </div>
 

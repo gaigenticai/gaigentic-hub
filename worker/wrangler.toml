@@ -17,11 +17,12 @@ binding = "VECTORIZE"
 index_name = "hub-knowledge"
 
 [vars]
-CHAOSBIRD_API_URL = "https://chaosbird-api.krishnamonsterindian.workers.dev"
+CHAOSBIRD_API_URL = "https://chaosbird.app/api"
 DEFAULT_LLM_PROVIDER = "zai"
 DEFAULT_LLM_MODEL = "glm-4.5"
 ZAI_BASE_URL = "https://api.z.ai/api/coding/paas/v4"
 ADMIN_EMAIL = "krishna@gaigentic.ai"
+CHAOSBIRD_ADMIN_USERNAME = "krishna"
 
 [[r2_buckets]]
 binding = "DOCUMENTS"

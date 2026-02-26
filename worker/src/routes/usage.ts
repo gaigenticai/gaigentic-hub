@@ -10,9 +10,9 @@ usage.get("/me", async (c) => {
   const email = await getSessionUser(c);
   if (!email) return c.json({ error: "Unauthorized" }, 401);
 
-  const user = await c.env.DB.prepare("SELECT id FROM users WHERE email = ?")
+  const user = await c.env.DB.prepare("SELECT id, trial_expires_at FROM users WHERE email = ?")
     .bind(email)
-    .first<UserRow>();
+    .first<Pick<UserRow, 'id' | 'trial_expires_at'>>();
   if (!user) return c.json({ error: "User not found" }, 404);
 
   const results = await c.env.DB.batch([
@@ -58,6 +58,7 @@ usage.get("/me", async (c) => {
     total_calls: totalCalls,
     calls_today: callsToday,
     calls_by_agent: callsByAgent,
+    trial_expires_at: user.trial_expires_at,
     api_key: activeKey
       ? {
           expires_at: activeKey.expires_at,

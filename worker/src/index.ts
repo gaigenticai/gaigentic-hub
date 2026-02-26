@@ -70,6 +70,33 @@ app.route("/health", healthRoutes);
 app.route("/documents", documentRoutes);
 
 // ==========================================
+// Chat proxy: send message to Krishna via Chaosbird
+// ==========================================
+
+app.post("/chat/send", async (c) => {
+  const body = await c.req.json<{ username?: string; message?: string }>();
+  if (!body.username || !body.message) {
+    return c.json({ error: "username and message required" }, 400);
+  }
+  if (!c.env.CHAOSBIRD_ADMIN_TOKEN) {
+    return c.json({ error: "Chat not configured" }, 500);
+  }
+
+  const ip = c.req.header("cf-connecting-ip") || "unknown";
+  const rl = await checkRateLimit(c.env.DB, `chat:${ip}`, 5, 60000);
+  if (!rl.allowed) return c.json({ error: "Too many messages, try again later" }, 429);
+
+  const sent = await sendChaosbirdMessage(
+    c.env.CHAOSBIRD_API_URL,
+    c.env.CHAOSBIRD_ADMIN_TOKEN,
+    c.env.CHAOSBIRD_ADMIN_USERNAME,
+    `[${body.username}] ${body.message}`,
+  );
+
+  return c.json({ success: sent });
+});
+
+// ==========================================
 // External API: /v1/agents/:slug/run
 // Authenticated by API key (ghk_*)
 // ==========================================
@@ -340,7 +367,7 @@ async function handleScheduled(env: Env): Promise<void> {
         env.CHAOSBIRD_API_URL,
         env.CHAOSBIRD_ADMIN_TOKEN,
         key.chaosbird_username,
-        `Your GaiGentic Hub API key expires in ${EXPIRY_WARNING_DAYS} days. Visit hub.gaigentic.ai/dashboard to generate a new key. Contact us here if you'd like to discuss an enterprise plan!`,
+        `Your gaigentic Agent Hub API key expires in ${EXPIRY_WARNING_DAYS} days. Visit hub.gaigentic.ai/dashboard to generate a new key. Contact us here if you'd like to discuss an enterprise plan!`,
       );
     }
 

@@ -18,6 +18,7 @@ export interface Env {
   DEFAULT_LLM_MODEL: string;
   ZAI_BASE_URL: string;
   ADMIN_EMAIL: string;
+  CHAOSBIRD_ADMIN_USERNAME: string;
 }
 
 // ==========================================
@@ -34,6 +35,7 @@ export interface UserRow {
   chaosbird_username: string | null;
   chaosbird_account_created: number;
   role: string;
+  trial_expires_at: string | null;
   last_seen_at: string | null;
   created_at: string;
 }

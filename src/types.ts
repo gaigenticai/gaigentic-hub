@@ -10,6 +10,7 @@ export interface User {
   company_slug: string;
   chaosbird_username: string | null;
   role: "user" | "admin";
+  trial_expires_at: string | null;
   created_at: string;
 }
 
