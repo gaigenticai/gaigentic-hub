@@ -203,6 +203,9 @@ admin.post("/agents", async (c) => {
     sample_output: string;
     system_prompt: string;
     guardrails?: string;
+    capabilities?: string;
+    jurisdictions?: string;
+    featured?: number;
     sort_order?: number;
   }>();
 
@@ -211,8 +214,8 @@ admin.post("/agents", async (c) => {
   }
 
   await c.env.DB.prepare(
-    `INSERT INTO agents (slug, name, tagline, description, category, icon, color, status, sample_input, sample_output, system_prompt, guardrails, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO agents (slug, name, tagline, description, category, icon, color, status, sample_input, sample_output, system_prompt, guardrails, capabilities, jurisdictions, featured, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       body.slug,
@@ -227,6 +230,9 @@ admin.post("/agents", async (c) => {
       body.sample_output,
       body.system_prompt,
       body.guardrails || null,
+      body.capabilities || null,
+      body.jurisdictions || null,
+      body.featured || 0,
       body.sort_order || 0,
     )
     .run();
@@ -254,6 +260,9 @@ admin.put("/agents/:slug", async (c) => {
     "sample_output",
     "system_prompt",
     "guardrails",
+    "capabilities",
+    "jurisdictions",
+    "featured",
     "sort_order",
   ];
 

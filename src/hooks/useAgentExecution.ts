@@ -78,6 +78,7 @@ export function useAgentExecution() {
   const [blocks, setBlocks] = useState<VisualBlock[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [auditLogId, setAuditLogId] = useState<string | null>(null);
   const rawTextRef = useRef("");
   const abortRef = useRef<(() => void) | null>(null);
 
@@ -90,17 +91,21 @@ export function useAgentExecution() {
         model?: string;
         userApiKey?: string;
       },
-    ) => {
+    ): Promise<{ auditLogId: string | null }> => {
       // Abort previous execution
       abortRef.current?.();
 
       setIsStreaming(true);
       setError(null);
       setBlocks([]);
+      setAuditLogId(null);
       rawTextRef.current = "";
 
-      const { stream, abort } = executeAgent(agentSlug, input, options);
+      const { stream, abort, auditLogId: auditIdPromise } = executeAgent(agentSlug, input, options);
       abortRef.current = abort;
+
+      // Resolve audit log ID when available
+      auditIdPromise.then((id) => setAuditLogId(id));
 
       const reader = stream.getReader();
 
@@ -136,6 +141,8 @@ export function useAgentExecution() {
       }
 
       setIsStreaming(false);
+      const resolvedId = await auditIdPromise;
+      return { auditLogId: resolvedId };
     },
     [],
   );
@@ -153,5 +160,5 @@ export function useAgentExecution() {
     rawTextRef.current = "";
   }, []);
 
-  return { blocks, isStreaming, error, execute, stop, reset };
+  return { blocks, isStreaming, error, auditLogId, execute, stop, reset };
 }

@@ -9,6 +9,7 @@ import type {
   LLMProvider,
   AdminStats,
   AdminSignup,
+  Feedback,
 } from "../types";
 
 const API_BASE = "/api";
@@ -162,6 +163,48 @@ export async function getAgent(slug: string): Promise<Agent> {
   return result.agent;
 }
 
+export async function getFeaturedAgents(): Promise<Agent[]> {
+  const result = await request<{ agents: Agent[] }>("/agents/featured");
+  return result.agents;
+}
+
+export async function searchAgents(query: string): Promise<Agent[]> {
+  const result = await request<{ agents: Agent[] }>(
+    `/agents/search?q=${encodeURIComponent(query)}`,
+  );
+  return result.agents;
+}
+
+// ==========================================
+// Feedback API
+// ==========================================
+
+export async function submitFeedback(
+  auditLogId: string,
+  rating: number,
+  comment?: string,
+  correction?: string,
+): Promise<{ id: string }> {
+  return authRequest<{ id: string }>("/feedback", {
+    method: "POST",
+    body: JSON.stringify({
+      audit_log_id: auditLogId,
+      rating,
+      comment: comment || undefined,
+      correction: correction || undefined,
+    }),
+  });
+}
+
+export async function getFeedback(
+  auditLogId: string,
+): Promise<Feedback[]> {
+  const result = await authRequest<{ feedback: Feedback[] }>(
+    `/feedback/${auditLogId}`,
+  );
+  return result.feedback;
+}
+
 // ==========================================
 // API Keys API
 // ==========================================
@@ -224,9 +267,15 @@ export function executeAgent(
 ): {
   stream: ReadableStream<string>;
   abort: () => void;
+  auditLogId: Promise<string | null>;
 } {
   const controller = new AbortController();
   const token = getSessionToken();
+
+  let resolveAuditId: (v: string | null) => void;
+  const auditLogId = new Promise<string | null>((r) => {
+    resolveAuditId = r;
+  });
 
   const stream = new ReadableStream<string>({
     async start(streamController) {
@@ -247,6 +296,9 @@ export function executeAgent(
           signal: controller.signal,
         });
 
+        // Capture audit log ID from response header
+        resolveAuditId!(res.headers.get("X-Audit-Log-Id"));
+
         if (!res.ok) {
           const body = await res.json().catch(() => ({ error: res.statusText }));
           streamController.enqueue(
@@ -266,6 +318,7 @@ export function executeAgent(
         }
         streamController.close();
       } catch (err: unknown) {
+        resolveAuditId!(null);
         if ((err as Error).name !== "AbortError") {
           streamController.enqueue(
             `event: error\ndata: ${JSON.stringify({ error: (err as Error).message })}\n\n`,
@@ -276,7 +329,7 @@ export function executeAgent(
     },
   });
 
-  return { stream, abort: () => controller.abort() };
+  return { stream, abort: () => controller.abort(), auditLogId };
 }
 
 // ==========================================

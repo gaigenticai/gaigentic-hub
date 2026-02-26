@@ -45,6 +45,12 @@ export type AgentCategory =
   | "payments"
   | "lending";
 
+export interface AgentCapability {
+  icon: string;
+  title: string;
+  description: string;
+}
+
 export interface Agent {
   id: string;
   slug: string;
@@ -58,6 +64,9 @@ export interface Agent {
   status: "active" | "maintenance" | "coming_soon";
   sample_input: string;
   sample_output: string;
+  capabilities: string | null;
+  jurisdictions: string | null;
+  featured: number;
   created_at: string;
 }
 
@@ -140,6 +149,30 @@ export interface KPIConfig {
     change?: string;
     trend?: "up" | "down" | "stable";
   }>;
+}
+
+// ==========================================
+// Feedback & Audit Types
+// ==========================================
+
+export interface AuditLog {
+  id: string;
+  agent_slug: string;
+  input_text: string;
+  output_text: string | null;
+  rag_sources: string | null;
+  llm_provider: string;
+  llm_model: string;
+  created_at: string;
+}
+
+export interface Feedback {
+  id: string;
+  audit_log_id: string;
+  rating: number;
+  comment: string | null;
+  correction: string | null;
+  created_at: string;
 }
 
 // ==========================================

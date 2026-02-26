@@ -11,6 +11,7 @@ import adminRoutes from "./routes/admin";
 import ragRoutes from "./routes/rag";
 import usageRoutes from "./routes/usage";
 import healthRoutes from "./routes/health";
+import feedbackRoutes from "./routes/feedback";
 
 // External API imports
 import { hashApiKey } from "./routes/apikeys";
@@ -37,6 +38,7 @@ app.use(
     ],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
+    exposeHeaders: ["X-Audit-Log-Id", "X-Using-Shared-Key"],
     maxAge: 86400,
   }),
 );
@@ -62,6 +64,7 @@ app.route("/apikeys", apikeyRoutes);
 app.route("/admin", adminRoutes);
 app.route("/rag", ragRoutes);
 app.route("/usage", usageRoutes);
+app.route("/feedback", feedbackRoutes);
 app.route("/health", healthRoutes);
 
 // ==========================================
@@ -176,33 +179,65 @@ app.post("/v1/agents/:slug/run", async (c) => {
   const systemPrompt =
     agent.system_prompt + ragContext + "\n\n" + VISUAL_OUTPUT_INSTRUCTIONS;
 
+  const inputText = JSON.stringify(body.input, null, 2);
+
+  // Hash system prompt for audit trail
+  const promptData = new TextEncoder().encode(systemPrompt);
+  const promptHashBuf = await crypto.subtle.digest("SHA-256", promptData);
+  const promptHash = Array.from(new Uint8Array(promptHashBuf).slice(0, 8))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
   try {
     const result = await provider.chat({
       model,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: JSON.stringify(body.input, null, 2) },
+        { role: "user", content: inputText },
       ],
       max_tokens: 2048,
     });
 
-    // Log usage
+    // Log usage + audit
     c.executionCtx.waitUntil(
-      c.env.DB.prepare(
-        `INSERT INTO usage_logs (user_id, agent_id, agent_slug, api_key_id, input_tokens, output_tokens, llm_provider, llm_model, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'success')`,
-      )
-        .bind(
-          keyRow.user_id,
-          agent.id,
-          agent.slug,
-          keyRow.id,
-          result.usage.input_tokens,
-          result.usage.output_tokens,
-          result.provider,
-          result.model,
+      (async () => {
+        const usageResult = await c.env.DB.prepare(
+          `INSERT INTO usage_logs (user_id, agent_id, agent_slug, api_key_id, input_tokens, output_tokens, llm_provider, llm_model, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'success')
+           RETURNING id`,
         )
-        .run(),
+          .bind(
+            keyRow.user_id,
+            agent.id,
+            agent.slug,
+            keyRow.id,
+            result.usage.input_tokens,
+            result.usage.output_tokens,
+            result.provider,
+            result.model,
+          )
+          .first<{ id: string }>();
+
+        await c.env.DB.prepare(
+          `INSERT INTO audit_logs (usage_log_id, user_id, agent_id, agent_slug, input_text, output_text, rag_sources, system_prompt_hash, llm_provider, llm_model, temperature, max_tokens)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+          .bind(
+            usageResult?.id || null,
+            keyRow.user_id,
+            agent.id,
+            agent.slug,
+            inputText,
+            result.content,
+            ragContext ? JSON.stringify(ragContext) : null,
+            promptHash,
+            result.provider,
+            result.model,
+            0.7,
+            2048,
+          )
+          .run();
+      })(),
     );
 
     return c.json({

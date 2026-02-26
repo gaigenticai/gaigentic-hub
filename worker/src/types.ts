@@ -52,6 +52,9 @@ export interface AgentRow {
   sample_output: string;
   system_prompt: string;
   guardrails: string | null;
+  capabilities: string | null;
+  jurisdictions: string | null;
+  featured: number;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -120,4 +123,35 @@ export interface ResponseCacheRow {
   hit_count: number;
   created_at: string;
   expires_at: string;
+}
+
+export interface AuditLogRow {
+  id: string;
+  usage_log_id: string | null;
+  user_id: string | null;
+  agent_id: string;
+  agent_slug: string;
+  input_text: string;
+  output_text: string | null;
+  rag_sources: string | null;
+  system_prompt_hash: string;
+  llm_provider: string;
+  llm_model: string;
+  temperature: number | null;
+  max_tokens: number | null;
+  created_at: string;
+}
+
+export interface FeedbackRow {
+  id: string;
+  audit_log_id: string;
+  user_id: string;
+  rating: number;
+  comment: string | null;
+  correction: string | null;
+  validated: number;
+  ingested: number;
+  validated_by: string | null;
+  validated_at: string | null;
+  created_at: string;
 }

@@ -7,6 +7,8 @@ import { useAgentExecution } from "../hooks/useAgentExecution";
 import JsonEditor from "../components/JsonEditor";
 import ResponseViewer from "../components/ResponseViewer";
 import ProviderSelector from "../components/ProviderSelector";
+import FeedbackWidget from "../components/FeedbackWidget";
+import ContactCTA from "../components/ContactCTA";
 
 export default function Playground() {
   const { slug: paramSlug } = useParams<{ slug: string }>();
@@ -16,8 +18,10 @@ export default function Playground() {
   const [inputJson, setInputJson] = useState("");
   const [provider, setProvider] = useState<LLMProvider>("zai");
   const [apiKey, setApiKey] = useState("");
+  const [hasExecuted, setHasExecuted] = useState(false);
 
-  const { blocks, isStreaming, error, execute, stop, reset } = useAgentExecution();
+  const { blocks, isStreaming, error, auditLogId, execute, stop, reset } =
+    useAgentExecution();
 
   // Load agents list
   useEffect(() => {
@@ -46,6 +50,7 @@ export default function Playground() {
     if (!selectedAgent || isStreaming) return;
     try {
       const input = JSON.parse(inputJson);
+      setHasExecuted(true);
       execute(selectedAgent.slug, input, {
         provider,
         userApiKey: apiKey || undefined,
@@ -53,6 +58,11 @@ export default function Playground() {
     } catch {
       // Invalid JSON
     }
+  };
+
+  const handleReset = () => {
+    reset();
+    setHasExecuted(false);
   };
 
   let isValidJson = false;
@@ -64,6 +74,8 @@ export default function Playground() {
   } catch {
     isValidJson = false;
   }
+
+  const executionDone = hasExecuted && !isStreaming && blocks.length > 0;
 
   return (
     <div>
@@ -87,7 +99,7 @@ export default function Playground() {
               value={selectedSlug}
               onChange={(e) => {
                 setSelectedSlug(e.target.value);
-                reset();
+                handleReset();
               }}
               className="input"
             >
@@ -131,37 +143,50 @@ export default function Playground() {
                 Execute
               </button>
             )}
-            <button onClick={reset} className="btn-secondary">
+            <button onClick={handleReset} className="btn-secondary">
               <RotateCcw className="h-4 w-4" />
             </button>
           </div>
         </div>
 
         {/* Right: Output */}
-        <div className="card min-h-[400px]">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Response</h3>
-            {isStreaming && (
-              <span className="flex items-center gap-1.5 text-xs text-purple-600">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-brand-400" />
-                Streaming...
-              </span>
+        <div className="space-y-4">
+          <div className="card min-h-[400px]">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900">Response</h3>
+              {isStreaming && (
+                <span className="flex items-center gap-1.5 text-xs text-purple-600">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-brand-400" />
+                  Streaming...
+                </span>
+              )}
+            </div>
+
+            {error && (
+              <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600" />
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+
+            {blocks.length === 0 && !isStreaming && !error ? (
+              <div className="flex h-64 items-center justify-center text-sm text-gray-600/30">
+                Execute an agent to see the response here
+              </div>
+            ) : (
+              <ResponseViewer blocks={blocks} isStreaming={isStreaming} />
             )}
           </div>
 
-          {error && (
-            <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3">
-              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600" />
-              <p className="text-sm text-red-300">{error}</p>
+          {/* Post-execution feedback + contact */}
+          {executionDone && (
+            <div className="space-y-4">
+              <FeedbackWidget auditLogId={auditLogId} />
+              <ContactCTA
+                compact
+                agentColor={selectedAgent?.color}
+              />
             </div>
-          )}
-
-          {blocks.length === 0 && !isStreaming && !error ? (
-            <div className="flex h-64 items-center justify-center text-sm text-gray-600/30">
-              Execute an agent to see the response here
-            </div>
-          ) : (
-            <ResponseViewer blocks={blocks} isStreaming={isStreaming} />
           )}
         </div>
       </div>

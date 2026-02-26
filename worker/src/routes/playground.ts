@@ -15,6 +15,73 @@ import {
 
 const playground = new Hono<{ Bindings: Env }>();
 
+/**
+ * Hash a string to a short hex digest for audit trails.
+ */
+async function shortHash(text: string): Promise<string> {
+  const data = new TextEncoder().encode(text);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash).slice(0, 8))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * Wrap a ReadableStream to capture all text passing through it.
+ * Returns the wrapped stream and a promise that resolves to the full text.
+ */
+function teeStreamCapture(stream: ReadableStream): {
+  readable: ReadableStream;
+  getText: () => Promise<string>;
+} {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let captured = "";
+  let resolveText: (text: string) => void;
+  const textPromise = new Promise<string>((r) => {
+    resolveText = r;
+  });
+
+  const readable = new ReadableStream({
+    async pull(controller) {
+      const { done, value } = await reader.read();
+      if (done) {
+        resolveText(captured);
+        controller.close();
+        return;
+      }
+      const chunk = decoder.decode(value, { stream: true });
+      captured += chunk;
+      controller.enqueue(value);
+    },
+    cancel() {
+      reader.cancel();
+      resolveText(captured);
+    },
+  });
+
+  return { readable, getText: () => textPromise };
+}
+
+/**
+ * Extract plain text content from captured SSE stream.
+ */
+function extractTextFromSSE(raw: string): string {
+  const lines = raw.split("\n");
+  let text = "";
+  for (const line of lines) {
+    if (!line.startsWith("data: ")) continue;
+    const data = line.slice(6);
+    try {
+      const parsed = JSON.parse(data);
+      if (parsed.text) text += parsed.text;
+    } catch {
+      // skip
+    }
+  }
+  return text;
+}
+
 // POST /playground/execute — SSE streaming agent execution
 playground.post("/execute", async (c) => {
   const ip = c.req.header("cf-connecting-ip") || "unknown";
@@ -139,6 +206,7 @@ playground.post("/execute", async (c) => {
 
   // Build RAG context
   let ragContext = "";
+  let ragSources: Array<{ source_name: string; source_type: string; score: number }> = [];
   try {
     const ragResults = await queryKnowledge(c.env, {
       query: JSON.stringify(body.input),
@@ -147,6 +215,11 @@ playground.post("/execute", async (c) => {
     });
 
     if (ragResults.length > 0) {
+      ragSources = ragResults.map((r) => ({
+        source_name: r.source_name,
+        source_type: r.source_type,
+        score: r.score,
+      }));
       ragContext =
         "\n\n=== RELEVANT KNOWLEDGE BASE ===\n" +
         ragResults
@@ -164,12 +237,10 @@ playground.post("/execute", async (c) => {
   const systemPrompt =
     agent.system_prompt + ragContext + "\n\n" + VISUAL_OUTPUT_INSTRUCTIONS;
 
+  const inputText = JSON.stringify(body.input, null, 2);
   const messages = [
     { role: "system" as const, content: systemPrompt },
-    {
-      role: "user" as const,
-      content: JSON.stringify(body.input, null, 2),
-    },
+    { role: "user" as const, content: inputText },
   ];
 
   // Parse guardrails
@@ -186,6 +257,10 @@ playground.post("/execute", async (c) => {
   }
 
   const startTime = Date.now();
+  const promptHash = await shortHash(systemPrompt);
+
+  // Pre-generate audit log ID so we can return it in headers
+  const auditLogId = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
 
   // Stream response
   try {
@@ -196,28 +271,62 @@ playground.post("/execute", async (c) => {
       temperature,
     });
 
-    // Log usage (async, don't block response)
-    const logPromise = c.env.DB.prepare(
-      `INSERT INTO usage_logs (user_id, agent_id, agent_slug, llm_provider, llm_model, is_sandbox, status)
-       VALUES (?, ?, ?, ?, ?, ?, 'success')`,
-    )
-      .bind(userId, agent.id, agent.slug, providerName, model, isSandbox ? 1 : 0)
-      .run();
+    // Tee the stream to capture output for audit
+    const { readable, getText } = teeStreamCapture(stream);
 
-    c.executionCtx.waitUntil(logPromise);
+    // Log usage + audit (async, don't block response)
+    c.executionCtx.waitUntil(
+      (async () => {
+        // Insert usage log first to get ID
+        const usageResult = await c.env.DB.prepare(
+          `INSERT INTO usage_logs (user_id, agent_id, agent_slug, llm_provider, llm_model, is_sandbox, status)
+           VALUES (?, ?, ?, ?, ?, ?, 'success')
+           RETURNING id`,
+        )
+          .bind(userId, agent.id, agent.slug, providerName, model, isSandbox ? 1 : 0)
+          .first<{ id: string }>();
 
-    // Return SSE stream
+        // Wait for stream to complete, then insert audit log
+        const rawSSE = await getText();
+        const outputText = extractTextFromSSE(rawSSE);
+
+        await c.env.DB.prepare(
+          `INSERT INTO audit_logs (id, usage_log_id, user_id, agent_id, agent_slug, input_text, output_text, rag_sources, system_prompt_hash, llm_provider, llm_model, temperature, max_tokens)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+          .bind(
+            auditLogId,
+            usageResult?.id || null,
+            userId,
+            agent.id,
+            agent.slug,
+            inputText,
+            outputText,
+            ragSources.length > 0 ? JSON.stringify(ragSources) : null,
+            promptHash,
+            providerName,
+            model,
+            temperature,
+            maxTokens,
+          )
+          .run();
+      })(),
+    );
+
+    // Return SSE stream with audit log ID in header
     const headers: Record<string, string> = {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
+      "X-Audit-Log-Id": auditLogId,
+      "Access-Control-Expose-Headers": "X-Audit-Log-Id",
     };
 
     if (usingSharedKey) {
       headers["X-Using-Shared-Key"] = "true";
     }
 
-    return new Response(stream, { headers });
+    return new Response(readable, { headers });
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : "LLM execution failed";
 
