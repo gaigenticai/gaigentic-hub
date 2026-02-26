@@ -13,7 +13,6 @@ import usageRoutes from "./routes/usage";
 import healthRoutes from "./routes/health";
 import feedbackRoutes from "./routes/feedback";
 import documentRoutes from "./routes/documents";
-import executionRoutes from "./routes/executions";
 
 // External API imports
 import { hashApiKey } from "./routes/apikeys";
@@ -69,7 +68,6 @@ app.route("/usage", usageRoutes);
 app.route("/feedback", feedbackRoutes);
 app.route("/health", healthRoutes);
 app.route("/documents", documentRoutes);
-app.route("/executions", executionRoutes);
 
 // ==========================================
 // Chat proxy: send message to Krishna via Chaosbird
@@ -393,6 +391,27 @@ async function handleScheduled(env: Env): Promise<void> {
   await DB.prepare(
     "DELETE FROM sandbox_usage WHERE last_call_at < datetime('now', '-1 day')",
   ).run();
+
+  // 5. Purge large output_text from audit_logs older than 7 days (keep metadata for analytics)
+  await DB.prepare(
+    "UPDATE audit_logs SET output_text = NULL, input_text = '[purged]' WHERE created_at < datetime('now', '-7 days') AND output_text IS NOT NULL",
+  ).run();
+
+  // 6. Clean up old document uploads (R2 files + DB rows) older than 7 days
+  const oldDocs = await DB.prepare(
+    "SELECT id, r2_key FROM document_uploads WHERE created_at < datetime('now', '-7 days')",
+  ).all<{ id: string; r2_key: string }>();
+
+  for (const doc of oldDocs.results) {
+    try {
+      await env.DOCUMENTS.delete(doc.r2_key);
+    } catch { /* R2 key may already be gone */ }
+  }
+  if (oldDocs.results.length > 0) {
+    await DB.prepare(
+      "DELETE FROM document_uploads WHERE created_at < datetime('now', '-7 days')",
+    ).run();
+  }
 }
 
 // ==========================================

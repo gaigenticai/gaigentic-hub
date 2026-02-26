@@ -77,6 +77,73 @@ export default function AgentDetail() {
   -H "Content-Type: application/json" \\
   -d '${agent.sample_input}'`;
 
+  const curlSaveExample = `# Stream response and save to file
+curl -X POST https://hub.gaigentic.ai/api/v1/agents/${agent.slug}/run \\
+  -H "Authorization: Bearer ghk_YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '${agent.sample_input}' \\
+  -o response.txt`;
+
+  const pythonExample = `import requests
+import json
+
+url = "https://hub.gaigentic.ai/api/v1/agents/${agent.slug}/run"
+headers = {
+    "Authorization": "Bearer ghk_YOUR_API_KEY",
+    "Content-Type": "application/json"
+}
+payload = ${sampleInput}
+
+# Stream the response and capture output
+response = requests.post(url, headers=headers, json=payload, stream=True)
+full_output = ""
+
+for line in response.iter_lines():
+    if line:
+        line = line.decode("utf-8")
+        if line.startswith("data: ") and line != "data: [DONE]":
+            data = json.loads(line[6:])
+            text = data.get("text", "")
+            full_output += text
+            print(text, end="", flush=True)
+
+# Save to file
+with open("output.md", "w") as f:
+    f.write(full_output)
+print(f"\\nSaved {len(full_output)} chars to output.md")`;
+
+  const jsExample = `const response = await fetch(
+  "https://hub.gaigentic.ai/api/v1/agents/${agent.slug}/run",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer ghk_YOUR_API_KEY",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(${sampleInput.replace(/\n\s*/g, " ")}),
+  }
+);
+
+// Read the SSE stream
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+let fullOutput = "";
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  const chunk = decoder.decode(value);
+  for (const line of chunk.split("\\n")) {
+    if (line.startsWith("data: ") && line !== "data: [DONE]") {
+      const { text } = JSON.parse(line.slice(6));
+      fullOutput += text;
+    }
+  }
+}
+
+// fullOutput now contains the complete response
+console.log(fullOutput);`;
+
   const TABS = [
     { id: "overview" as const, label: "Overview", icon: Eye },
     { id: "capabilities" as const, label: "Capabilities", icon: Layers },
@@ -283,64 +350,165 @@ export default function AgentDetail() {
 
       {tab === "api" && (
         <div className="space-y-6">
+          {/* Quick Start */}
           <div className="card">
             <h3 className="mb-3 text-lg font-semibold text-gray-900">
               Quick Start
             </h3>
-            <p className="mb-4 text-sm text-gray-600">
-              1. Sign up and generate an API key from your dashboard.
-              <br />
-              2. Use the key to call the agent endpoint below.
-            </p>
+            <ol className="mb-4 space-y-1.5 text-sm text-gray-600 list-decimal list-inside">
+              <li>
+                <Link to="/apikeys" className="text-purple-600 hover:text-purple-700 font-medium">
+                  Generate an API key
+                </Link>{" "}from your dashboard.
+              </li>
+              <li>Call the agent endpoint below with your key.</li>
+              <li>Parse the SSE stream to capture the full response.</li>
+              <li>Store the output on your end — playground data is cleared after 7 days.</li>
+            </ol>
             <CodeBlock lang="bash">{curlExample}</CodeBlock>
           </div>
 
+          {/* Endpoint + Auth */}
           <div className="card">
             <h3 className="mb-3 text-lg font-semibold text-gray-900">
-              Endpoint
+              Endpoint &amp; Authentication
             </h3>
-            <div className="rounded-lg bg-gray-50 p-4 font-mono text-sm">
+            <div className="rounded-lg bg-gray-50 p-4 font-mono text-sm mb-4">
               <span className="font-semibold text-emerald-600">POST</span>{" "}
               <span className="text-gray-700">
-                /api/v1/agents/{agent.slug}/run
+                https://hub.gaigentic.ai/api/v1/agents/{agent.slug}/run
               </span>
             </div>
-          </div>
-
-          <div className="card">
-            <h3 className="mb-3 text-lg font-semibold text-gray-900">
-              Headers
-            </h3>
             <div className="space-y-2 rounded-lg bg-gray-50 p-4 text-sm font-mono text-gray-600">
               <div>
-                <span className="text-amber-600">Authorization</span>: Bearer
-                ghk_YOUR_KEY
+                <span className="text-amber-600">Authorization</span>: Bearer ghk_YOUR_KEY
               </div>
               <div>
-                <span className="text-amber-600">Content-Type</span>:
-                application/json
+                <span className="text-amber-600">Content-Type</span>: application/json
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-gray-400">
+              API keys start with <code className="text-gray-500">ghk_</code>. Keys can be scoped to specific agents or work across all agents.
+            </p>
+          </div>
+
+          {/* Response Format */}
+          <div className="card">
+            <h3 className="mb-3 text-lg font-semibold text-gray-900">
+              Response Format (SSE Stream)
+            </h3>
+            <p className="mb-3 text-sm text-gray-600">
+              Responses stream as <strong>Server-Sent Events</strong>. Each <code className="text-gray-700 bg-gray-100 px-1 rounded">data:</code> line contains a JSON object with a <code className="text-gray-700 bg-gray-100 px-1 rounded">text</code> field. Concatenate all text chunks to get the complete output.
+            </p>
+            <CodeBlock lang="bash">{`event: token
+data: {"text":"# Financial Analysis\\n\\n"}
+
+event: token
+data: {"text":"## 1. Executive Summary\\n"}
+
+event: token
+data: {"text":"Revenue increased 12% YoY..."}
+
+event: done
+data: {"text":""}`}</CodeBlock>
+
+            <div className="mt-4 rounded-lg border border-amber-100 bg-amber-50/60 px-3.5 py-2.5">
+              <p className="text-xs text-gray-600">
+                <strong className="text-amber-700">Important:</strong> Responses are not stored permanently. Capture and save the output during streaming. Use the Playground's "Copy Raw" or "Download" buttons for quick testing, or parse the stream programmatically for production use.
+              </p>
+            </div>
+          </div>
+
+          {/* Code Examples */}
+          <div className="card">
+            <h3 className="mb-3 text-lg font-semibold text-gray-900">
+              Capture &amp; Save Output
+            </h3>
+            <p className="mb-4 text-sm text-gray-600">
+              Parse the SSE stream, concatenate the text, and store it however you need — database, file, or downstream API.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Python</h4>
+                <CodeBlock lang="python">{pythonExample}</CodeBlock>
+              </div>
+              <div>
+                <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">JavaScript / Node.js</h4>
+                <CodeBlock lang="javascript">{jsExample}</CodeBlock>
+              </div>
+              <div>
+                <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">cURL (save to file)</h4>
+                <CodeBlock lang="bash">{curlSaveExample}</CodeBlock>
               </div>
             </div>
           </div>
 
+          {/* Error Handling */}
           <div className="card">
             <h3 className="mb-3 text-lg font-semibold text-gray-900">
-              Response Format
+              Error Handling
             </h3>
-            <p className="mb-3 text-sm text-gray-600">
-              Responses stream as Server-Sent Events (SSE). Each event contains
-              a chunk of the agent's output including visual blocks (tables,
-              charts, KPI cards) that you can render or process as plain text.
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="py-2 pr-4 text-left font-medium text-gray-500">Status</th>
+                    <th className="py-2 pr-4 text-left font-medium text-gray-500">Meaning</th>
+                    <th className="py-2 text-left font-medium text-gray-500">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-600">
+                  <tr className="border-b border-gray-50">
+                    <td className="py-2 pr-4 font-mono text-red-500">401</td>
+                    <td className="py-2 pr-4">Missing or invalid API key</td>
+                    <td className="py-2">Check your <code className="text-gray-700 bg-gray-100 px-1 rounded">Authorization</code> header</td>
+                  </tr>
+                  <tr className="border-b border-gray-50">
+                    <td className="py-2 pr-4 font-mono text-red-500">403</td>
+                    <td className="py-2 pr-4">Key not authorized for this agent</td>
+                    <td className="py-2">Use a key scoped to this agent or a global key</td>
+                  </tr>
+                  <tr className="border-b border-gray-50">
+                    <td className="py-2 pr-4 font-mono text-amber-500">429</td>
+                    <td className="py-2 pr-4">Rate limit exceeded</td>
+                    <td className="py-2">Wait and retry — or contact us for higher limits</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 pr-4 font-mono text-red-500">500</td>
+                    <td className="py-2 pr-4">Server error</td>
+                    <td className="py-2">Retry with exponential backoff</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-xs text-gray-400">
+              Errors during streaming arrive as <code className="text-gray-500">event: error</code> SSE events with a JSON <code className="text-gray-500">error</code> field.
             </p>
-            <div className="rounded-lg bg-gray-50 p-4 text-sm font-mono text-gray-600">
-              <div className="text-gray-400">// SSE stream</div>
-              <div>
-                data: {`{"type":"text","content":"## Analysis..."}`}
+          </div>
+
+          {/* Rate Limits & Data Retention */}
+          <div className="card">
+            <h3 className="mb-3 text-lg font-semibold text-gray-900">
+              Limits &amp; Data Retention
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-lg bg-gray-50 p-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Rate Limits</h4>
+                <ul className="space-y-1 text-xs text-gray-500">
+                  <li>Free tier: 60 requests per minute</li>
+                  <li>Max request body: 10MB</li>
+                  <li>Max response: ~4,000 tokens</li>
+                </ul>
               </div>
-              <div>
-                data: {`{"type":"text","content":"|||TABLE|||..."}`}
+              <div className="rounded-lg bg-gray-50 p-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Data Retention</h4>
+                <ul className="space-y-1 text-xs text-gray-500">
+                  <li>Playground data: cleared after 7 days</li>
+                  <li>Uploaded documents: deleted after 7 days</li>
+                  <li>API responses: not stored — capture during streaming</li>
+                </ul>
               </div>
-              <div>data: [DONE]</div>
             </div>
           </div>
 
