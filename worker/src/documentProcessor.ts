@@ -3,7 +3,9 @@
  *
  * Supports: images (png, jpg, webp), PDFs, text files, CSVs
  * Uses @cf/meta/llama-3.2-11b-vision-instruct for vision tasks
+ * Uses custom PDF parser for text extraction from PDFs
  */
+import { extractPdfText, extractPdfImages } from "./pdfExtractor";
 
 const SUPPORTED_TYPES: Record<string, string> = {
   "image/png": "image",
@@ -93,13 +95,31 @@ export async function processDocument(
       };
 
     case "pdf":
-      // For v1, we process PDFs through the vision model as well
-      // Workers AI can handle PDF bytes as image input
       try {
-        return {
-          text: await extractTextFromImage(ai, fileBytes),
-          method: "workers-ai-vision-pdf",
-        };
+        // Strategy 1: Try parsing text directly from PDF streams
+        const pdfText = await extractPdfText(fileBytes);
+        if (pdfText.length > 50) {
+          return { text: pdfText, method: "pdf-text-parser" };
+        }
+
+        // Strategy 2: Extract embedded JPEG images and OCR them
+        const images = extractPdfImages(fileBytes, 3);
+        if (images.length > 0) {
+          const pageTexts: string[] = [];
+          for (let i = 0; i < images.length; i++) {
+            try {
+              const pageText = await extractTextFromImage(ai, images[i]);
+              if (pageText) pageTexts.push(`--- Page ${i + 1} ---\n${pageText}`);
+            } catch {
+              // Skip failed pages
+            }
+          }
+          if (pageTexts.length > 0) {
+            return { text: pageTexts.join("\n\n"), method: "pdf-image-ocr" };
+          }
+        }
+
+        return { text: pdfText, method: "pdf-extraction-minimal" };
       } catch {
         return { text: "", method: "pdf-extraction-failed" };
       }
