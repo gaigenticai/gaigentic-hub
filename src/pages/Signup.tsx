@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bot, ArrowRight, MessageCircle, CheckCircle } from "lucide-react";
+import { ArrowRight, MessageCircle, CheckCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function Signup() {
@@ -104,13 +104,11 @@ export default function Signup() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50 px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <Link to="/" className="mb-6 inline-flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-r from-purple-600 to-blue-600">
-              <Bot className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-lg font-bold font-headline text-gray-900">
-              GaiGentic<span className="text-gradient"> Hub</span>
+          <Link to="/" className="mb-6 inline-flex items-center gap-2">
+            <span className="text-xl font-bold font-headline tracking-tight">
+              g<span className="text-[#E63226]">ai</span>gentic.ai
             </span>
+            <span className="text-sm font-bold font-headline text-gray-400 tracking-wide">agent hub</span>
           </Link>
           <h1 className="mt-4 text-2xl font-bold text-gray-900 font-headline">
             Start your free trial

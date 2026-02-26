@@ -59,13 +59,11 @@ export default function Landing() {
       {/* Nav */}
       <header className="fixed top-0 left-0 right-0 w-full bg-white border-b border-gray-200 z-50">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-r from-purple-600 to-blue-600">
-              <Bot className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-lg font-bold font-headline text-gray-900">
-              GaiGentic<span className="text-gradient"> Hub</span>
+          <Link to="/" className="flex items-center gap-2">
+            <span className="text-xl font-bold font-headline tracking-tight">
+              g<span className="text-[#E63226]">ai</span>gentic.ai
             </span>
+            <span className="text-sm font-bold font-headline text-gray-400 tracking-wide">agent hub</span>
           </Link>
           <div className="flex items-center gap-3">
             <Link
