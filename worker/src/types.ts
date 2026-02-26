@@ -57,6 +57,7 @@ export interface AgentRow {
   guardrails: string | null;
   capabilities: string | null;
   jurisdictions: string | null;
+  playground_instructions: string | null;
   featured: number;
   sort_order: number;
   created_at: string;

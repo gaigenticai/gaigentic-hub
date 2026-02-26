@@ -6,6 +6,7 @@ interface JsonEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   readOnly?: boolean;
+  sampleInput?: string;
 }
 
 export default function JsonEditor({
@@ -13,6 +14,7 @@ export default function JsonEditor({
   onChange,
   placeholder,
   readOnly,
+  sampleInput,
 }: JsonEditorProps) {
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +48,17 @@ export default function JsonEditor({
     }
   }, [value, onChange]);
 
+  const populateSample = useCallback(() => {
+    if (!sampleInput) return;
+    try {
+      const parsed = JSON.parse(sampleInput);
+      onChange(JSON.stringify(parsed, null, 2));
+      setError(null);
+    } catch {
+      onChange(sampleInput);
+    }
+  }, [sampleInput, onChange]);
+
   return (
     <div className="relative">
       <div className="flex items-center justify-between rounded-t-lg border border-b-0 border-gray-200 bg-white/80 px-3 py-2">
@@ -64,7 +77,15 @@ export default function JsonEditor({
               Valid
             </span>
           ) : null}
-          {!readOnly && (
+          {!readOnly && sampleInput && (
+            <button
+              onClick={populateSample}
+              className="rounded px-2 py-0.5 text-xs text-purple-600 hover:bg-purple-100"
+            >
+              Populate Sample
+            </button>
+          )}
+          {!readOnly && value.trim() && (
             <button
               onClick={formatJson}
               className="rounded px-2 py-0.5 text-xs text-purple-600 hover:bg-purple-100"

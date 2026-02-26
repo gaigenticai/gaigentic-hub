@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Play, Square, RotateCcw, AlertCircle } from "lucide-react";
+import { Play, Square, RotateCcw, AlertCircle, Info } from "lucide-react";
 import type { Agent, LLMProvider } from "../types";
 import { getAgents, getAgent } from "../services/api";
 import { useAgentExecution } from "../hooks/useAgentExecution";
@@ -49,11 +49,7 @@ export default function Playground() {
     if (!selectedSlug) return;
     getAgent(selectedSlug).then((a) => {
       setSelectedAgent(a);
-      try {
-        setInputJson(JSON.stringify(JSON.parse(a.sample_input), null, 2));
-      } catch {
-        setInputJson(a.sample_input);
-      }
+      setInputJson("");
     });
   }, [selectedSlug]);
 
@@ -130,11 +126,22 @@ export default function Playground() {
             </select>
           </div>
 
+          {/* Agent instructions */}
+          {selectedAgent?.playground_instructions && (
+            <div className="flex gap-2.5 rounded-lg border border-blue-100 bg-blue-50/60 px-3.5 py-2.5">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
+              <p className="text-sm leading-relaxed text-gray-600 whitespace-pre-line">
+                {selectedAgent.playground_instructions}
+              </p>
+            </div>
+          )}
+
           {/* JSON Input */}
           <JsonEditor
             value={inputJson}
             onChange={setInputJson}
             placeholder='{"key": "value"}'
+            sampleInput={selectedAgent?.sample_input}
           />
 
           {/* File Upload */}

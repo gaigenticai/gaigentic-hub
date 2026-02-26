@@ -67,6 +67,7 @@ export interface Agent {
   sample_output: string;
   capabilities: string | null;
   jurisdictions: string | null;
+  playground_instructions: string | null;
   featured: number;
   created_at: string;
 }

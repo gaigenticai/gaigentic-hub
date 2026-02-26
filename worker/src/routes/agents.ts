@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Env, AgentRow } from "../types";
 
-const AGENT_FIELDS = "id, slug, name, tagline, description, category, icon, color, version, status, sample_input, sample_output, capabilities, jurisdictions, featured, created_at";
+const AGENT_FIELDS = "id, slug, name, tagline, description, category, icon, color, version, status, sample_input, sample_output, capabilities, jurisdictions, playground_instructions, featured, created_at";
 
 const agents = new Hono<{ Bindings: Env }>();
 
