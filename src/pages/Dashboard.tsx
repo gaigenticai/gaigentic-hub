@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Key, Play, BarChart3, Plus, Trash2, Clock, MessageCircle, X, Calendar } from "lucide-react";
+import { Key, Play, BarChart3, Plus, Trash2, Clock, MessageCircle, X, Calendar, Send, CheckCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import type { ApiKey, UsageStats } from "../types";
 import { getMyApiKeys, generateApiKey, revokeApiKey, getMyUsage } from "../services/api";
@@ -15,6 +15,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatSending, setChatSending] = useState(false);
+  const [chatSent, setChatSent] = useState(false);
 
   useEffect(() => {
     if (auth.status !== "authenticated") {
@@ -223,9 +226,10 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Support — Inline Chat */}
-      <div className="card border-purple-200 overflow-hidden">
-        <div className="flex items-center justify-between">
+      {/* Support — Chat with Krishna */}
+      <div className="overflow-hidden rounded-2xl border border-purple-200">
+        {/* Header */}
+        <div className="flex items-center justify-between bg-white px-5 py-4">
           <div className="flex items-start gap-3">
             <MessageCircle className="mt-0.5 h-5 w-5 text-purple-600" />
             <div>
@@ -266,15 +270,106 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Inline Chaosbird chat iframe */}
+        {/* Inline chat widget */}
         {chatOpen && (
-          <div className="mt-4 overflow-hidden rounded-xl border border-gray-200">
-            <iframe
-              src="https://chaosbird.app/c/3529a4556f2a4d70a38c042978c7c867?embed=true&theme=light"
-              className="h-[420px] w-full border-0"
-              allow="clipboard-write"
-              title="Chat with Krishna"
-            />
+          <div className="border-t border-gray-100">
+            {/* Chat header bar */}
+            <div className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2.5">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-[10px] font-bold text-white">
+                K
+              </div>
+              <span className="text-sm font-medium text-white">Krishna</span>
+              <span className="ml-auto text-[10px] text-purple-200">
+                {user.chaosbird_username && `@${user.chaosbird_username}`}
+              </span>
+            </div>
+
+            {/* Messages area */}
+            <div className="bg-gray-50/50 px-4 py-4">
+              {/* Krishna's greeting */}
+              <div className="mb-3 flex items-start gap-2">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 text-[10px] font-bold text-white">
+                  K
+                </div>
+                <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-white px-4 py-2.5 text-sm text-gray-700 shadow-sm">
+                  <p>Hey {user.name.split(" ")[0]}! How can I help you today?</p>
+                  <p className="mt-1 text-gray-500">Ask me about agents, enterprise plans, or anything else.</p>
+                </div>
+              </div>
+
+              {/* User's sent message */}
+              {chatSent && (
+                <div className="mb-3 flex justify-end">
+                  <div className="max-w-[85%] rounded-2xl rounded-br-md bg-purple-600 px-4 py-2.5 text-sm text-white">
+                    {chatMessage}
+                  </div>
+                </div>
+              )}
+
+              {/* Chat input or confirmation */}
+              {chatSent ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center">
+                  <CheckCircle className="mx-auto h-5 w-5 text-emerald-500" />
+                  <p className="mt-1 text-sm font-medium text-emerald-700">Message sent!</p>
+                  <p className="text-xs text-emerald-600">Krishna will reply on Chaosbird</p>
+                  <button
+                    onClick={() => { setChatSent(false); setChatMessage(""); }}
+                    className="mt-2 text-xs text-emerald-600 underline hover:text-emerald-700"
+                  >
+                    Send another message
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-2 flex items-end gap-2">
+                  <textarea
+                    value={chatMessage}
+                    onChange={(e) => setChatMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey && chatMessage.trim()) {
+                        e.preventDefault();
+                        document.getElementById("dash-chat-send")?.click();
+                      }
+                    }}
+                    placeholder="Type a message to Krishna..."
+                    className="flex-1 resize-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                    rows={2}
+                    autoFocus
+                  />
+                  <button
+                    id="dash-chat-send"
+                    onClick={async () => {
+                      if (!chatMessage.trim() || !user.chaosbird_username) return;
+                      setChatSending(true);
+                      try {
+                        await fetch("/api/chat/send", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            username: user.chaosbird_username,
+                            message: chatMessage.trim(),
+                          }),
+                        });
+                        setChatSent(true);
+                      } catch {
+                        // silent fail
+                      } finally {
+                        setChatSending(false);
+                      }
+                    }}
+                    disabled={chatSending || !chatMessage.trim()}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-600 text-white transition-colors hover:bg-purple-700 disabled:opacity-40"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-gray-100 bg-gray-50 px-3 py-1.5">
+              <p className="text-center text-[10px] text-gray-400">
+                Messages sent as <span className="font-medium">{user.chaosbird_username}</span> via Chaosbird
+              </p>
+            </div>
           </div>
         )}
       </div>
