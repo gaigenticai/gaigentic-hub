@@ -65,7 +65,7 @@ admin.get("/signups", async (c) => {
   const offset = (page - 1) * limit;
 
   let countQuery = "SELECT COUNT(*) as total FROM users";
-  let dataQuery = `SELECT u.id, u.name, u.email, u.company_name, u.company_slug, u.chaosbird_username, u.created_at,
+  let dataQuery = `SELECT u.id, u.name, u.email, u.company_name, u.company_slug, u.chaosbird_username, u.trial_expires_at, u.created_at,
     (SELECT COUNT(*) FROM usage_logs WHERE user_id = u.id) as api_calls,
     (SELECT MAX(created_at) FROM usage_logs WHERE user_id = u.id) as last_active
     FROM users u`;
@@ -96,8 +96,57 @@ admin.get("/signups", async (c) => {
     dataStmt.all(),
   ]);
 
+  // Fetch agents tried + feedback for each user
+  const userIds = dataResult.results.map((r: Record<string, unknown>) => r.id as string);
+
+  let agentsByUser: Record<string, Array<{ agent_slug: string; count: number; last_used: string }>> = {};
+  let feedbackByUser: Record<string, Array<{ agent_slug: string; rating: number; comment: string | null; correction: string | null; created_at: string }>> = {};
+
+  if (userIds.length > 0) {
+    const placeholders = userIds.map(() => "?").join(",");
+
+    const [agentsResult, feedbackResult] = await Promise.all([
+      c.env.DB.prepare(
+        `SELECT user_id, agent_slug, COUNT(*) as count, MAX(created_at) as last_used
+         FROM usage_logs WHERE user_id IN (${placeholders})
+         GROUP BY user_id, agent_slug ORDER BY count DESC`,
+      ).bind(...userIds).all<{ user_id: string; agent_slug: string; count: number; last_used: string }>(),
+
+      c.env.DB.prepare(
+        `SELECT f.user_id, ul.agent_slug, f.rating, f.comment, f.correction, f.created_at
+         FROM feedback f
+         LEFT JOIN audit_logs al ON f.audit_log_id = al.id
+         LEFT JOIN usage_logs ul ON al.usage_log_id = ul.id
+         WHERE f.user_id IN (${placeholders})
+         ORDER BY f.created_at DESC`,
+      ).bind(...userIds).all<{ user_id: string; agent_slug: string | null; rating: number; comment: string | null; correction: string | null; created_at: string }>(),
+    ]);
+
+    for (const row of agentsResult.results) {
+      if (!agentsByUser[row.user_id]) agentsByUser[row.user_id] = [];
+      agentsByUser[row.user_id].push({ agent_slug: row.agent_slug, count: row.count, last_used: row.last_used });
+    }
+
+    for (const row of feedbackResult.results) {
+      if (!feedbackByUser[row.user_id]) feedbackByUser[row.user_id] = [];
+      feedbackByUser[row.user_id].push({
+        agent_slug: row.agent_slug || "unknown",
+        rating: row.rating,
+        comment: row.comment,
+        correction: row.correction,
+        created_at: row.created_at,
+      });
+    }
+  }
+
+  const enriched = dataResult.results.map((r: Record<string, unknown>) => ({
+    ...r,
+    agents_tried: agentsByUser[r.id as string] || [],
+    feedback: feedbackByUser[r.id as string] || [],
+  }));
+
   return c.json({
-    signups: dataResult.results,
+    signups: enriched,
     total: countResult?.total || 0,
   });
 });

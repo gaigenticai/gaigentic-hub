@@ -228,7 +228,10 @@ export interface AdminSignup {
   company_name: string;
   company_slug: string;
   chaosbird_username: string | null;
+  trial_expires_at: string | null;
   api_calls: number;
   last_active: string | null;
   created_at: string;
+  agents_tried: Array<{ agent_slug: string; count: number; last_used: string }>;
+  feedback: Array<{ agent_slug: string; rating: number; comment: string | null; correction: string | null; created_at: string }>;
 }
