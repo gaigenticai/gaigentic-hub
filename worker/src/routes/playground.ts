@@ -279,7 +279,10 @@ playground.post("/execute", async (c) => {
     "\n\n" +
     VISUAL_OUTPUT_INSTRUCTIONS;
 
-  const inputText = JSON.stringify(body.input, null, 2);
+  const hasEmptyInput = Object.keys(body.input).length === 0;
+  const inputText = hasEmptyInput && documentContext
+    ? "Please analyze the uploaded documents provided in the system context."
+    : JSON.stringify(body.input, null, 2);
   const messages = [
     { role: "system" as const, content: systemPrompt },
     { role: "user" as const, content: inputText },
