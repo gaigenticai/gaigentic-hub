@@ -6,12 +6,34 @@ const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_FILES = 5;
 
 /**
+ * Get the Tesseract recognize function, handling CJS/ESM interop.
+ */
+async function getTesseractRecognize(): Promise<
+  (image: unknown, lang: string) => Promise<{ data: { text: string } }>
+> {
+  const mod = await import("tesseract.js");
+  // Handle CJS/ESM interop — recognize could be on default or top-level
+  const recognize =
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (mod as any).recognize ||
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (mod as any).default?.recognize;
+  if (typeof recognize !== "function") {
+    throw new Error("Tesseract.recognize not found — check import");
+  }
+  return recognize;
+}
+
+/**
  * Extract text from a PDF using pdf.js text layer.
  * For scanned PDFs, renders pages to canvas and runs Tesseract OCR.
  */
 async function extractPdfText(file: File): Promise<string> {
   const pdfjsLib = await import("pdfjs-dist");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+  // Use Vite's ?url suffix to get the worker URL as a string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const workerUrl = ((await import("pdfjs-dist/build/pdf.worker.min.mjs?url")) as any).default;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -37,23 +59,24 @@ async function extractPdfText(file: File): Promise<string> {
 
   // Scanned PDF — render pages to canvas and OCR with Tesseract
   try {
-    const Tesseract = await import("tesseract.js");
+    const recognize = await getTesseractRecognize();
     const ocrTexts: string[] = [];
 
     for (let i = 1; i <= maxPages; i++) {
       const page = await pdf.getPage(i);
-      const viewport = page.getViewport({ scale: 2.0 }); // Higher scale = better OCR
+      const viewport = page.getViewport({ scale: 2.0 });
       const canvas = document.createElement("canvas");
       canvas.width = viewport.width;
       canvas.height = viewport.height;
       const ctx = canvas.getContext("2d");
       if (!ctx) continue;
 
-      await page.render({ canvasContext: ctx, viewport, canvas } as never).promise;
+      await page.render({ canvasContext: ctx, viewport, canvas }).promise;
 
-      const result = await Tesseract.recognize(canvas, "eng");
-      if (result.data.text.trim()) {
-        ocrTexts.push(result.data.text.trim());
+      const result = await recognize(canvas, "eng");
+      const pageText = result.data.text.trim();
+      if (pageText) {
+        ocrTexts.push(pageText);
       }
       canvas.remove();
     }
@@ -61,8 +84,8 @@ async function extractPdfText(file: File): Promise<string> {
     if (ocrTexts.length > 0) {
       return ocrTexts.join("\n\n");
     }
-  } catch {
-    // Tesseract failed — return whatever text layer we got
+  } catch (err) {
+    console.error("[PDF OCR] Tesseract failed:", err);
   }
 
   return fullText;
@@ -106,11 +129,12 @@ export function useDocumentUpload() {
           if (IMAGE_TYPES.includes(file.type)) {
             // Image OCR with Tesseract
             try {
-              const Tesseract = await import("tesseract.js");
-              const result = await Tesseract.recognize(file, "eng");
+              const recognize = await getTesseractRecognize();
+              const result = await recognize(file, "eng");
               clientText = result.data.text;
               updateDoc(tempId, { clientText, status: "uploading" });
-            } catch {
+            } catch (err) {
+              console.error("[OCR] Tesseract failed:", err);
               updateDoc(tempId, { status: "uploading" });
             }
           } else if (file.type === "application/pdf") {
@@ -119,7 +143,8 @@ export function useDocumentUpload() {
               const text = await extractPdfText(file);
               if (text) clientText = text;
               updateDoc(tempId, { clientText, status: "uploading" });
-            } catch {
+            } catch (err) {
+              console.error("[PDF] extraction failed:", err);
               updateDoc(tempId, { status: "uploading" });
             }
           } else {

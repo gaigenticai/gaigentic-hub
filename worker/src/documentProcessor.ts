@@ -63,7 +63,8 @@ function detectImageMime(bytes: Uint8Array): string {
 }
 
 /**
- * Extract text from an image using z.ai (OpenAI-compatible vision API).
+ * Extract text from an image using z.ai vision API.
+ * Tries glm-ocr first (dedicated OCR model), falls back to glm-4.6v-flash.
  */
 async function extractTextViaZai(
   apiKey: string,
@@ -74,38 +75,54 @@ async function extractTextViaZai(
   const base64 = bytesToBase64(imageBytes);
   const dataUri = `data:${mime};base64,${base64}`;
 
-  // Use the standard z.ai API path for vision (not the coding API)
+  // Use the standard z.ai API path (not the coding API)
   const visionBaseUrl = baseUrl.replace("/api/coding/paas/v4", "/api/paas/v4");
-  const res = await fetch(`${visionBaseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "glm-4v-plus",
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: OCR_PROMPT },
-            { type: "image_url", image_url: { url: dataUri } },
-          ],
-        },
-      ],
-      max_tokens: 4096,
-    }),
-  });
 
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => "");
-    throw new Error(`z.ai vision failed (${res.status}): ${errBody.slice(0, 200)}`);
+  // Try models in order: glm-ocr (dedicated OCR), then glm-4.6v-flash (vision)
+  const models = ["glm-ocr", "glm-4.6v-flash", "glm-4.5v"];
+  let lastError = "";
+
+  for (const model of models) {
+    try {
+      const res = await fetch(`${visionBaseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: OCR_PROMPT },
+                { type: "image_url", image_url: { url: dataUri } },
+              ],
+            },
+          ],
+          max_tokens: 4096,
+        }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => "");
+        lastError = `${model}(${res.status}):${errBody.slice(0, 100)}`;
+        continue; // Try next model
+      }
+
+      const data = (await res.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      const text = data.choices?.[0]?.message?.content || "";
+      if (text) return text;
+      lastError = `${model}:empty-response`;
+    } catch (err) {
+      lastError = `${model}:${err instanceof Error ? err.message.slice(0, 80) : "unknown"}`;
+    }
   }
 
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  return data.choices?.[0]?.message?.content || "";
+  throw new Error(`All z.ai vision models failed. Last: ${lastError}`);
 }
 
 /**
