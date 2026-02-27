@@ -4,33 +4,46 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Primary brand — purple-blue gradient system (matches gaigentic.ai)
-        brand: {
-          50: "#faf5ff",
-          100: "#f3e8ff",
-          200: "#e9d5ff",
-          300: "#d8b4fe",
-          400: "#c084fc",
-          500: "#a855f7",
-          600: "#9333ea",
-          700: "#7c3aed",
-          800: "#6b21b6",
-          900: "#581c87",
+        // Ink — warm gray neutral scale (the Ledger palette)
+        ink: {
+          950: "#0C0C0E",
+          900: "#1A1A1F",
+          800: "#2C2C33",
+          700: "#3D3D47",
+          600: "#52525E",
+          500: "#6B6B78",
+          400: "#8E8E9A",
+          300: "#B0B0BA",
+          200: "#D1D1D8",
+          100: "#E8E8EC",
+          50: "#F4F4F6",
+          25: "#FAFAFB",
         },
-        // CTA orange (matches gaigentic.ai)
+        // CTA orange (brand)
         cta: {
           DEFAULT: "#FF7A00",
           hover: "#E56A00",
+          light: "#FFF3E6",
+          ring: "rgba(255, 122, 0, 0.2)",
         },
-        // Cobalt secondary CTA
+        // Cobalt secondary
         cobalt: {
           DEFAULT: "#0052CC",
-          hover: "#003d99",
+          hover: "#003D99",
+          light: "#E8F0FE",
+          ring: "rgba(0, 82, 204, 0.2)",
         },
-        // Gradient helpers
-        "gradient-start": "#6366f1",
-        "gradient-middle": "#8b5cf6",
-        "gradient-end": "#a855f7",
+        // Signal colors (semantic, surgical use)
+        signal: {
+          green: "#0D7C3F",
+          "green-light": "#E6F4EC",
+          red: "#C9190B",
+          "red-light": "#FCECEA",
+          amber: "#B25000",
+          "amber-light": "#FFF4E6",
+        },
+        // Brand red (logo only)
+        "brand-red": "#E63226",
       },
       fontFamily: {
         headline: ["Montserrat", "system-ui", "sans-serif"],
@@ -39,37 +52,23 @@ export default {
         mono: ["JetBrains Mono", "Fira Code", "monospace"],
       },
       borderRadius: {
-        lg: "0.75rem",
-        md: "0.625rem",
-        sm: "0.5rem",
+        lg: "0.5rem",
+        md: "0.375rem",
+        sm: "0.25rem",
       },
       animation: {
-        "fade-in-up": "fadeInUp 0.8s ease-out forwards",
-        float: "float 6s ease-in-out infinite",
-        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
-        shimmer: "shimmer 2s infinite",
+        "fade-in": "fadeIn 0.2s ease-out",
+        "slide-up": "slideUp 0.2s ease-out",
       },
       keyframes: {
-        fadeInUp: {
-          from: { opacity: "0", transform: "translateY(30px)" },
+        fadeIn: {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
+        slideUp: {
+          from: { opacity: "0", transform: "translateY(4px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
-        float: {
-          "0%, 100%": { transform: "translateY(0px)" },
-          "50%": { transform: "translateY(-20px)" },
-        },
-        "pulse-glow": {
-          "0%, 100%": { boxShadow: "0 0 20px rgba(139, 92, 246, 0.3)" },
-          "50%": { boxShadow: "0 0 40px rgba(139, 92, 246, 0.6)" },
-        },
-        shimmer: {
-          "0%": { backgroundPosition: "-200px 0" },
-          "100%": { backgroundPosition: "calc(200px + 100%) 0" },
-        },
-      },
-      boxShadow: {
-        "glow-sm": "0 0 10px rgba(139, 92, 246, 0.3)",
-        "glow-md": "0 0 20px rgba(139, 92, 246, 0.4)",
       },
     },
   },

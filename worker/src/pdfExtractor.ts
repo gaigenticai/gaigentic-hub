@@ -6,6 +6,32 @@
  */
 
 /**
+ * Check if extracted text looks like real readable content.
+ * Returns false for garbage output (repeated chars, no spaces, no words).
+ */
+function isReadableText(text: string): boolean {
+  if (text.length < 20) return false;
+
+  // Must contain spaces (real text has words)
+  const spaceRatio = (text.match(/ /g) || []).length / text.length;
+  if (spaceRatio < 0.05) return false;
+
+  // Must contain at least some alphanumeric sequences of 3+ chars (words)
+  const words = text.match(/[a-zA-Z]{3,}/g) || [];
+  if (words.length < 3) return false;
+
+  // Check for excessive repetition of single characters
+  const charCounts = new Map<string, number>();
+  for (const ch of text) {
+    charCounts.set(ch, (charCounts.get(ch) || 0) + 1);
+  }
+  const maxCharFreq = Math.max(...charCounts.values()) / text.length;
+  if (maxCharFreq > 0.4) return false; // Single char is >40% of text = garbage
+
+  return true;
+}
+
+/**
  * Extract text content from a PDF file.
  * Handles compressed (FlateDecode) and uncompressed text streams.
  */
@@ -29,7 +55,15 @@ export async function extractPdfText(bytes: Uint8Array): Promise<string> {
     if (streamTexts) lines.push(streamTexts);
   }
 
-  return lines.join("\n").trim();
+  const result = lines.join("\n").trim();
+
+  // Validate: if the result doesn't look like real text, return empty
+  // so the caller falls through to OCR or client-extracted text
+  if (result.length > 0 && !isReadableText(result)) {
+    return "";
+  }
+
+  return result;
 }
 
 /**
@@ -114,7 +148,7 @@ function extractTextFromBlock(block: string): string {
     parts.push(unescapePdfString(m[1]));
   }
 
-  return parts.join("").trim();
+  return parts.join(" ").trim();
 }
 
 /**

@@ -1,4 +1,5 @@
 export const AGENT_CATEGORIES = [
+  "accounting",
   "underwriting",
   "compliance",
   "collections",
@@ -12,6 +13,7 @@ export const AGENT_CATEGORIES = [
 ] as const;
 
 export const CATEGORY_LABELS: Record<string, string> = {
+  accounting: "Accounting",
   underwriting: "Underwriting",
   compliance: "Compliance",
   collections: "Collections",

@@ -298,6 +298,7 @@ export function executeAgent(
     model?: string;
     userApiKey?: string;
     documentIds?: string[];
+    prompt?: string;
   },
 ): {
   stream: ReadableStream<string>;
@@ -328,6 +329,7 @@ export function executeAgent(
             model: options?.model,
             user_api_key: options?.userApiKey,
             document_ids: options?.documentIds,
+            prompt: options?.prompt,
           }),
           signal: controller.signal,
         });

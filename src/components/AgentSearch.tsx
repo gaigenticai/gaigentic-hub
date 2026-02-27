@@ -52,7 +52,7 @@ export default function AgentSearch() {
   return (
     <div ref={containerRef} className="relative w-full max-w-2xl mx-auto">
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
         <input
           ref={inputRef}
           type="text"
@@ -60,7 +60,7 @@ export default function AgentSearch() {
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setOpen(true)}
           placeholder="What do you need help with? e.g. 'GST compliance', 'invoice processing'"
-          className="w-full rounded-2xl border border-gray-200 bg-white py-4 pl-12 pr-12 text-base text-gray-900 placeholder-gray-400 shadow-lg transition-all focus:border-purple-400 focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:shadow-xl"
+          className="input pl-10 pr-10"
         />
         {query && (
           <button
@@ -70,21 +70,21 @@ export default function AgentSearch() {
               setOpen(false);
               inputRef.current?.focus();
             }}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600 transition-colors duration-150"
           >
             <X className="h-4 w-4" />
           </button>
         )}
         {loading && (
-          <div className="absolute right-12 top-1/2 -translate-y-1/2">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
+          <div className="absolute right-10 top-1/2 -translate-y-1/2">
+            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-ink-300 border-t-transparent" />
           </div>
         )}
       </div>
 
       {/* Dropdown results */}
       {open && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
+        <div className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-lg border border-ink-200 bg-white shadow-lg animate-slide-up">
           {results.map((agent) => (
             <button
               key={agent.id}
@@ -93,23 +93,23 @@ export default function AgentSearch() {
                 setOpen(false);
                 setQuery("");
               }}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50"
+              className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-ink-50"
             >
               <span
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xl"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-lg"
                 style={{
-                  backgroundColor: `${agent.color}15`,
+                  backgroundColor: `${agent.color}12`,
                 }}
               >
                 {agent.icon}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-gray-900">
+                <p className="truncate text-sm font-semibold text-ink-900">
                   {agent.name}
                 </p>
-                <p className="truncate text-xs text-gray-500">{agent.tagline}</p>
+                <p className="truncate text-xs text-ink-500">{agent.tagline}</p>
               </div>
-              <span className="shrink-0 rounded-full border border-gray-200 px-2 py-0.5 text-[10px] font-medium capitalize text-gray-500">
+              <span className="shrink-0 rounded-md border border-ink-200 px-2 py-0.5 text-[10px] font-medium capitalize text-ink-500">
                 {agent.category}
               </span>
             </button>

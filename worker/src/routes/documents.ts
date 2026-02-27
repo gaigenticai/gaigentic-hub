@@ -86,7 +86,13 @@ documents.post("/upload", async (c) => {
     serverText = result.text;
     extractionMethod = result.method;
 
-    if (!serverText && clientText) {
+    // If client sent better text (longer, more substantial), prefer it
+    if (clientText && clientText.length > 50) {
+      if (!serverText || serverText.length < clientText.length * 0.5) {
+        serverText = clientText;
+        extractionMethod += "+client-preferred";
+      }
+    } else if (!serverText && clientText) {
       serverText = clientText;
       extractionMethod += "+client-fallback";
     }

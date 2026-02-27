@@ -64,7 +64,7 @@ export default function FileUpload({
 
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-gray-600">
+      <label className="mb-1.5 block text-xs font-medium text-ink-500 uppercase tracking-widest">
         Upload Documents (optional)
       </label>
 
@@ -79,8 +79,8 @@ export default function FileUpload({
         onClick={() => inputRef.current?.click()}
         className={`cursor-pointer rounded-xl border-2 border-dashed p-4 text-center transition-all ${
           dragOver
-            ? "border-purple-400 bg-purple-50"
-            : "border-gray-200 bg-gray-50/50 hover:border-gray-300 hover:bg-gray-50"
+            ? "border-cta bg-cta-light"
+            : "border-ink-200 bg-ink-50/50 hover:border-ink-300 hover:bg-ink-50"
         }`}
       >
         <input
@@ -92,13 +92,13 @@ export default function FileUpload({
           className="hidden"
         />
         <Upload
-          className={`mx-auto mb-1.5 h-5 w-5 ${dragOver ? "text-purple-500" : "text-gray-400"}`}
+          className={`mx-auto mb-1.5 h-5 w-5 ${dragOver ? "text-cta" : "text-ink-400"}`}
         />
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-ink-500">
           Drop files here or{" "}
-          <span className="font-medium text-purple-600">browse</span>
+          <span className="font-medium text-cta">browse</span>
         </p>
-        <p className="mt-0.5 text-[10px] text-gray-400">
+        <p className="mt-0.5 text-[10px] text-ink-400">
           Images, PDFs, text, CSV — max 10MB each
         </p>
       </div>
@@ -113,41 +113,41 @@ export default function FileUpload({
             return (
               <div
                 key={doc.id}
-                className="rounded-lg border border-gray-200 bg-white"
+                className="rounded-lg border border-ink-200 bg-white"
               >
                 <div className="flex items-center gap-2 px-3 py-2">
-                  <Icon className="h-4 w-4 shrink-0 text-gray-400" />
+                  <Icon className="h-4 w-4 shrink-0 text-ink-400" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium text-gray-700">
+                    <p className="truncate text-xs font-medium text-ink-700">
                       {doc.fileName}
                     </p>
-                    <p className="text-[10px] text-gray-400">
+                    <p className="text-[10px] text-ink-400">
                       {formatSize(doc.fileSize)}
                     </p>
                   </div>
 
                   {/* Status */}
                   {doc.status === "extracting" && (
-                    <span className="flex items-center gap-1 text-[10px] text-purple-600">
+                    <span className="flex items-center gap-1 text-[10px] text-cta">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       OCR...
                     </span>
                   )}
                   {doc.status === "uploading" && (
-                    <span className="flex items-center gap-1 text-[10px] text-blue-600">
+                    <span className="flex items-center gap-1 text-[10px] text-cobalt">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       Uploading
                     </span>
                   )}
                   {doc.status === "ready" && (
-                    <span className="flex items-center gap-1 text-[10px] text-emerald-600">
+                    <span className="flex items-center gap-1 text-[10px] text-signal-green">
                       <CheckCircle2 className="h-3 w-3" />
                       Ready
                     </span>
                   )}
                   {doc.status === "error" && (
                     <span
-                      className="flex items-center gap-1 text-[10px] text-red-500"
+                      className="flex items-center gap-1 text-[10px] text-signal-red"
                       title={doc.error}
                     >
                       <AlertCircle className="h-3 w-3" />
@@ -161,7 +161,7 @@ export default function FileUpload({
                       onClick={() =>
                         setExpandedId(isExpanded ? null : doc.id)
                       }
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-ink-400 hover:text-ink-600"
                     >
                       {isExpanded ? (
                         <ChevronUp className="h-3.5 w-3.5" />
@@ -174,7 +174,7 @@ export default function FileUpload({
                   {/* Remove */}
                   <button
                     onClick={() => onRemoveFile(doc.id)}
-                    className="text-gray-400 hover:text-red-500"
+                    className="text-ink-400 hover:text-signal-red"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -182,11 +182,11 @@ export default function FileUpload({
 
                 {/* Expanded text preview */}
                 {isExpanded && doc.extractedText && (
-                  <div className="border-t border-gray-100 px-3 py-2">
-                    <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">
+                  <div className="border-t border-ink-100 px-3 py-2">
+                    <p className="mb-1 text-[10px] font-medium uppercase tracking-widest text-ink-400">
                       Extracted Text
                     </p>
-                    <pre className="max-h-32 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-gray-600">
+                    <pre className="max-h-32 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-ink-600">
                       {doc.extractedText}
                     </pre>
                   </div>
@@ -199,7 +199,7 @@ export default function FileUpload({
 
       {/* Uploading indicator */}
       {isUploading && (
-        <p className="mt-1.5 flex items-center gap-1 text-[10px] text-purple-600">
+        <p className="mt-1.5 flex items-center gap-1 text-[10px] text-cta">
           <Loader2 className="h-3 w-3 animate-spin" />
           Processing files...
         </p>

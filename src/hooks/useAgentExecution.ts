@@ -91,6 +91,7 @@ export function useAgentExecution() {
         model?: string;
         userApiKey?: string;
         documentIds?: string[];
+        prompt?: string;
       },
     ): Promise<{ auditLogId: string | null }> => {
       // Abort previous execution

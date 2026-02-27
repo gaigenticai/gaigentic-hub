@@ -34,17 +34,7 @@ export interface LoginPayload {
 // Agent Types
 // ==========================================
 
-export type AgentCategory =
-  | "underwriting"
-  | "compliance"
-  | "collections"
-  | "credit"
-  | "infrastructure"
-  | "intelligence"
-  | "disputes"
-  | "identity"
-  | "payments"
-  | "lending";
+export type AgentCategory = string;
 
 export interface AgentCapability {
   icon: string;

@@ -33,14 +33,14 @@ export default function ApiKeyDisplay({
     : null;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="rounded-lg border border-ink-200 bg-white p-4">
       <div className="flex items-center gap-2">
-        <code className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-sm text-emerald-600">
+        <code className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-sm text-ink-900">
           {display}
         </code>
         <button
           onClick={() => setRevealed(!revealed)}
-          className="rounded p-1.5 text-gray-600 hover:bg-white hover:text-gray-900"
+          className="btn-icon"
           title={revealed ? "Hide" : "Reveal"}
         >
           {revealed ? (
@@ -51,18 +51,18 @@ export default function ApiKeyDisplay({
         </button>
         <button
           onClick={copy}
-          className="rounded p-1.5 text-gray-600 hover:bg-white hover:text-gray-900"
+          className="btn-icon"
           title="Copy"
         >
           {copied ? (
-            <Check className="h-4 w-4 text-emerald-600" />
+            <Check className="h-4 w-4 text-signal-green" />
           ) : (
             <Copy className="h-4 w-4" />
           )}
         </button>
       </div>
       {daysLeft !== null && (
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs text-ink-500">
           {daysLeft > 0
             ? `Expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`
             : "Expired"}

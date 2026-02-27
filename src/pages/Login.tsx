@@ -38,26 +38,26 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-white px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link to="/" className="mb-6 inline-flex items-center gap-2">
-            <span className="text-xl font-bold font-headline tracking-tight">
+            <span className="text-lg font-bold font-headline tracking-tight">
               g<span className="text-[#E63226]">ai</span>gentic.ai
             </span>
-            <span className="text-sm font-bold font-headline text-gray-400 tracking-wide">agent hub</span>
+            <span className="text-xs font-semibold font-headline text-ink-400 tracking-wide uppercase">agent hub</span>
           </Link>
-          <h1 className="mt-4 text-2xl font-bold text-gray-900 font-headline">
+          <h1 className="mt-4 text-2xl font-semibold text-ink-950 font-headline">
             Welcome back
           </h1>
-          <p className="mt-2 text-gray-600">
+          <p className="mt-2 text-sm text-ink-500">
             Log in with your work email to continue.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="card-flat space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            <label className="mb-1.5 block text-sm font-medium text-ink-600">
               Work Email
             </label>
             <input
@@ -77,7 +77,7 @@ export default function Login() {
 
           {needsPassword && (
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              <label className="mb-1.5 block text-sm font-medium text-ink-600">
                 Password
               </label>
               <input
@@ -93,7 +93,7 @@ export default function Login() {
           )}
 
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            <div className="rounded-lg border border-signal-red/20 bg-signal-red-light px-4 py-3 text-sm text-signal-red">
               {error === "Account not found"
                 ? "No account found with this email. Please sign up first."
                 : error}
@@ -109,9 +109,9 @@ export default function Login() {
             {!loading && <ArrowRight className="h-4 w-4" />}
           </button>
 
-          <p className="text-center text-xs text-gray-500">
+          <p className="text-center text-xs text-ink-500">
             Don't have an account?{" "}
-            <Link to="/signup" className="text-purple-600 hover:underline">
+            <Link to="/signup" className="text-cobalt hover:underline">
               Start free trial
             </Link>
           </p>

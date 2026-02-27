@@ -22,7 +22,7 @@ export default function ResponseViewer({
             return (
               <div
                 key={i}
-                className="whitespace-pre-wrap text-sm leading-relaxed text-gray-600"
+                className="whitespace-pre-wrap text-sm leading-relaxed text-ink-600"
               >
                 {block.content as string}
               </div>
@@ -38,7 +38,7 @@ export default function ResponseViewer({
         }
       })}
       {isStreaming && (
-        <span className="inline-block h-4 w-2 animate-pulse bg-brand-400" />
+        <span className="inline-block h-4 w-2 animate-pulse bg-cta" />
       )}
     </div>
   );

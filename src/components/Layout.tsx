@@ -29,35 +29,35 @@ export default function Layout() {
   const isAdmin = auth.user?.role === "admin";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="min-h-screen bg-white">
       {/* Top Nav */}
-      <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+      <header className="sticky top-0 z-50 border-b border-ink-100 bg-white">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold font-headline tracking-tight">
+            <span className="text-lg font-bold font-headline tracking-tight">
               g<span className="text-[#E63226]">ai</span>gentic.ai
             </span>
-            <span className="text-sm font-bold font-headline text-gray-400 tracking-wide">agent hub</span>
+            <span className="text-xs font-semibold font-headline text-ink-400 tracking-wide uppercase">agent hub</span>
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden items-center gap-1 md:flex">
+          <nav className="hidden items-center gap-0.5 md:flex">
             {NAV_ITEMS.filter((n) => !n.auth || isAuthenticated).map((item) => {
               const active = location.pathname.startsWith(item.to);
               return (
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors relative ${
+                  className={`relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors duration-150 ${
                     active
-                      ? "text-purple-700"
-                      : "text-gray-500 hover:text-gray-900"
+                      ? "text-ink-950"
+                      : "text-ink-500 hover:text-ink-900"
                   }`}
                 >
                   <item.icon className="h-4 w-4" />
                   {item.label}
                   {active && (
-                    <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full" />
+                    <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-ink-950 rounded-full" />
                   )}
                 </Link>
               );
@@ -65,10 +65,10 @@ export default function Layout() {
             {isAdmin && (
               <Link
                 to="/admin"
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors duration-150 ${
                   location.pathname === "/admin"
-                    ? "text-amber-600"
-                    : "text-gray-500 hover:text-gray-900"
+                    ? "text-cta"
+                    : "text-ink-500 hover:text-ink-900"
                 }`}
               >
                 <Shield className="h-4 w-4" />
@@ -77,17 +77,17 @@ export default function Layout() {
             )}
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {isAuthenticated && (() => {
               const t = auth.user?.trial_expires_at;
               if (!t) return null;
               const d = Math.max(0, Math.ceil((new Date(t).getTime() - Date.now()) / 86400000));
               if (d > 7) return null;
               return (
-                <span className={`hidden sm:inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  d <= 0 ? "bg-red-100 text-red-700" :
-                  d <= 3 ? "bg-amber-100 text-amber-700" :
-                  "bg-blue-100 text-blue-700"
+                <span className={`hidden sm:inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
+                  d <= 0 ? "bg-signal-red-light text-signal-red" :
+                  d <= 3 ? "bg-signal-amber-light text-signal-amber" :
+                  "bg-cobalt-light text-cobalt"
                 }`}>
                   {d <= 0 ? "Trial expired" : `${d}d left`}
                 </span>
@@ -97,9 +97,9 @@ export default function Layout() {
               <>
                 <Link
                   to="/apikeys"
-                  className="hidden items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all hover:shadow-md sm:flex"
+                  className="hidden items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-700 transition-colors duration-150 hover:border-ink-300 hover:bg-ink-50 sm:flex"
                 >
-                  <Key className="h-4 w-4" />
+                  <Key className="h-3.5 w-3.5" />
                   API Keys
                 </Link>
                 <button
@@ -107,14 +107,14 @@ export default function Layout() {
                     logout();
                     navigate("/");
                   }}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                  className="btn-icon"
                 >
                   <LogOut className="h-4 w-4" />
                 </button>
               </>
             ) : (
               <>
-                <Link to="/login" className="text-sm font-medium text-gray-500 hover:text-gray-900">
+                <Link to="/login" className="text-sm font-medium text-ink-500 hover:text-ink-900 transition-colors duration-150">
                   Log In
                 </Link>
                 <Link to="/signup" className="btn-primary text-sm">
@@ -123,7 +123,7 @@ export default function Layout() {
               </>
             )}
             <button
-              className="md:hidden text-gray-500"
+              className="md:hidden btn-icon"
               onClick={() => setMobileOpen(!mobileOpen)}
             >
               {mobileOpen ? (
@@ -137,14 +137,14 @@ export default function Layout() {
 
         {/* Mobile Nav */}
         {mobileOpen && (
-          <div className="border-t border-gray-200 bg-white px-4 pb-4 md:hidden">
+          <div className="border-t border-ink-100 bg-white px-4 pb-3 md:hidden">
             {NAV_ITEMS.filter((n) => !n.auth || isAuthenticated).map(
               (item) => (
                 <Link
                   key={item.to}
                   to={item.to}
                   onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-ink-600 hover:bg-ink-50 hover:text-ink-900 transition-colors duration-150"
                 >
                   <item.icon className="h-4 w-4" />
                   {item.label}

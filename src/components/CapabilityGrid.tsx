@@ -9,6 +9,9 @@ import {
   Zap,
   Search,
   BarChart3,
+  Target,
+  Globe,
+  Tag,
   type LucideIcon,
 } from "lucide-react";
 import type { AgentCapability } from "../types";
@@ -24,6 +27,9 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Zap,
   Search,
   BarChart3,
+  Target,
+  Globe,
+  Tag,
 };
 
 interface Props {
@@ -50,34 +56,23 @@ export default function CapabilityGrid({ capabilities, agentColor }: Props) {
         return (
           <div
             key={i}
-            className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
+            className="rounded-lg border border-ink-100 bg-white p-5"
           >
-            {/* Subtle color accent on hover */}
             <div
-              className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+              className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg"
               style={{
-                background: agentColor
-                  ? `linear-gradient(135deg, ${agentColor}08, ${agentColor}04)`
-                  : undefined,
+                backgroundColor: agentColor ? `${agentColor}12` : "#F4F4F6",
+                color: agentColor || "#6B6B78",
               }}
-            />
-            <div className="relative">
-              <div
-                className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg transition-colors duration-300"
-                style={{
-                  backgroundColor: agentColor ? `${agentColor}15` : "#f3f4f6",
-                  color: agentColor || "#6b7280",
-                }}
-              >
-                <Icon className="h-5 w-5" />
-              </div>
-              <h4 className="mb-1 text-sm font-semibold text-gray-900">
-                {cap.title}
-              </h4>
-              <p className="text-xs leading-relaxed text-gray-500">
-                {cap.description}
-              </p>
+            >
+              <Icon className="h-4.5 w-4.5" />
             </div>
+            <h4 className="mb-1 text-sm font-semibold text-ink-900 normal-case tracking-normal">
+              {cap.title}
+            </h4>
+            <p className="text-xs leading-relaxed text-ink-500">
+              {cap.description}
+            </p>
           </div>
         );
       })}

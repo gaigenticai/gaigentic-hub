@@ -2,24 +2,24 @@ import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import type { KPIConfig } from "../types";
 
 const TREND_CONFIG = {
-  up: { icon: TrendingUp, color: "text-emerald-600" },
-  down: { icon: TrendingDown, color: "text-red-600" },
-  stable: { icon: Minus, color: "text-gray-600" },
+  up: { icon: TrendingUp, color: "text-signal-green" },
+  down: { icon: TrendingDown, color: "text-signal-red" },
+  stable: { icon: Minus, color: "text-ink-500" },
 };
 
 export default function KPICards({ config }: { config: KPIConfig }) {
   return (
-    <div className="my-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+    <div className="my-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       {config.metrics.map((metric, i) => {
         const trend = TREND_CONFIG[metric.trend || "stable"];
         const TrendIcon = trend.icon;
 
         return (
-          <div key={i} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-            <p className="truncate text-[11px] font-medium text-gray-500">
+          <div key={i} className="rounded-lg border border-ink-100 bg-white p-3">
+            <p className="text-[11px] font-medium text-ink-500 uppercase tracking-widest leading-tight">
               {metric.label}
             </p>
-            <p className="mt-0.5 truncate text-lg font-bold text-gray-900">
+            <p className="mt-1 text-base font-semibold font-mono tabular-nums text-ink-950 break-words leading-tight">
               {metric.value}
             </p>
             {metric.change && (

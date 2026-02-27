@@ -8,7 +8,6 @@ import {
   ArrowRight,
   Shield,
   Brain,
-  Sparkles,
   Calendar,
 } from "lucide-react";
 
@@ -55,20 +54,20 @@ export default function Landing() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="min-h-screen bg-white">
       {/* Nav */}
-      <header className="fixed top-0 left-0 right-0 w-full bg-white border-b border-gray-200 z-50">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+      <header className="fixed top-0 left-0 right-0 w-full bg-white border-b border-ink-100 z-50">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold font-headline tracking-tight">
+            <span className="text-lg font-bold font-headline tracking-tight">
               g<span className="text-[#E63226]">ai</span>gentic.ai
             </span>
-            <span className="text-sm font-bold font-headline text-gray-400 tracking-wide">agent hub</span>
+            <span className="text-xs font-semibold font-headline text-ink-400 tracking-wide uppercase">agent hub</span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Link
               to="/agents"
-              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 sm:block"
+              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-ink-500 hover:text-ink-900 transition-colors duration-150 sm:block"
             >
               Browse Agents
             </Link>
@@ -76,11 +75,11 @@ export default function Landing() {
               href="https://gaigentic.ai"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 sm:block"
+              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-ink-500 hover:text-ink-900 transition-colors duration-150 sm:block"
             >
               gaigentic.ai
             </a>
-            <Link to="/login" className="hidden rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 sm:block">
+            <Link to="/login" className="hidden rounded-lg px-3 py-2 text-sm font-medium text-ink-500 hover:text-ink-900 transition-colors duration-150 sm:block">
               Log In
             </Link>
             <Link to="/signup" className="btn-primary">
@@ -92,40 +91,29 @@ export default function Landing() {
       </header>
 
       {/* Hero */}
-      <section className="relative overflow-hidden pt-32 pb-24 sm:pt-40 sm:pb-32">
-        {/* Decorative orbs */}
-        <div className="absolute top-20 left-10 w-72 h-72 bg-purple-200/40 rounded-full blur-3xl animate-float" />
-        <div className="absolute bottom-10 right-10 w-72 h-72 bg-blue-200/40 rounded-full blur-3xl animate-float" style={{ animationDelay: "3s" }} />
-        {/* Grid overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8882_1px,transparent_1px),linear-gradient(to_bottom,#8882_1px,transparent_1px)] bg-[size:14px_24px]" />
-
-        <div className="relative mx-auto max-w-4xl px-4 text-center sm:px-6">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-purple-200 bg-purple-50 px-4 py-1.5 text-sm font-medium text-purple-700">
-            <Sparkles className="h-4 w-4" />
-            The App Store for Fintech AI
-          </div>
-          <h1 className="text-5xl font-extrabold tracking-tight text-gray-900 sm:text-7xl font-headline">
-            AI Agents that understand{" "}
-            <span className="text-gradient">
-              financial services
-            </span>
+      <section className="pt-32 pb-20 sm:pt-36 sm:pb-24">
+        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
+          <span className="tag mb-6 inline-flex">Fintech AI Agents &mdash; Production-Ready</span>
+          <h1 className="text-4xl font-semibold tracking-tight text-ink-950 sm:text-5xl font-headline">
+            AI agents that understand{" "}
+            <span className="text-cta">financial services</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600 leading-relaxed">
+          <p className="mx-auto mt-5 max-w-xl text-base text-ink-600 leading-relaxed">
             Browse, test, and integrate production-grade AI agents for
             underwriting, compliance, collections, credit decisioning, and more.
             No obligations. 14-day free trial.
           </p>
-          <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link
               to="/signup"
-              className="btn-primary px-8 py-4 text-base"
+              className="btn-primary px-6 py-3 text-base"
             >
               Start Free Trial
-              <ArrowRight className="h-5 w-5" />
+              <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               to="/agents"
-              className="btn-secondary px-8 py-4 text-base"
+              className="btn-secondary px-6 py-3 text-base"
             >
               Browse Agents
             </Link>
@@ -134,29 +122,22 @@ export default function Landing() {
       </section>
 
       {/* Features */}
-      <section className="border-t border-gray-200 py-24">
+      <section className="border-t border-ink-100 py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <h2 className="text-center text-4xl font-bold text-gray-900 font-headline">
-            Everything you need to build with AI
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-gray-600">
-            From playground to production in minutes. Every agent is built with
-            enterprise-grade prompt engineering, guardrails, and domain
-            knowledge.
-          </p>
-          <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          <h4 className="text-center mb-10">Platform Capabilities</h4>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((feature, i) => (
               <div
                 key={i}
-                className="card group"
+                className="card"
               >
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-100 to-blue-100 text-purple-600 group-hover:from-purple-600 group-hover:to-blue-600 group-hover:text-white transition-all duration-300">
-                  <feature.icon className="h-6 w-6" />
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-ink-50 text-ink-600">
+                  <feature.icon className="h-5 w-5" />
                 </div>
-                <h3 className="mb-2 text-lg font-semibold text-gray-900 font-headline">
+                <h3 className="mb-1.5 text-sm font-semibold text-ink-900">
                   {feature.title}
                 </h3>
-                <p className="text-sm text-gray-600 leading-relaxed">{feature.desc}</p>
+                <p className="text-sm text-ink-600 leading-relaxed">{feature.desc}</p>
               </div>
             ))}
           </div>
@@ -164,43 +145,41 @@ export default function Landing() {
       </section>
 
       {/* CTA */}
-      <section className="py-24">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6">
-          <div className="rounded-3xl bg-gradient-to-r from-purple-600 to-blue-600 p-12 text-center shadow-2xl">
-            <h2 className="text-3xl font-bold text-white font-headline">
-              Ready to build smarter?
-            </h2>
-            <p className="mt-4 text-purple-100">
-              Sign up in 30 seconds. No credit card. No obligations. Just AI
-              agents that work.
-            </p>
-            <Link
-              to="/signup"
-              className="mt-8 inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-semibold text-purple-700 shadow-lg transition-all hover:shadow-xl hover:scale-105"
-            >
-              Get Started Free
-              <ArrowRight className="h-5 w-5" />
-            </Link>
-          </div>
+      <section className="border-t border-ink-100 py-16">
+        <div className="mx-auto max-w-2xl px-4 text-center sm:px-6">
+          <h2 className="text-2xl font-semibold text-ink-950 font-headline">
+            Ready to integrate?
+          </h2>
+          <p className="mt-2 text-ink-600">
+            Sign up in 30 seconds. No credit card. No obligations. Just AI
+            agents that work.
+          </p>
+          <Link
+            to="/signup"
+            className="btn-primary mt-6 px-6 py-3 text-base"
+          >
+            Get Started Free
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </section>
 
       {/* Book a Call */}
-      <section className="border-t border-gray-200 py-24">
+      <section className="border-t border-ink-100 py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6">
-          <div className="mb-10 text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-purple-200 bg-purple-50 px-4 py-1.5 text-sm font-medium text-purple-700">
-              <Calendar className="h-4 w-4" />
+          <div className="mb-8 text-center">
+            <h4 className="mb-3">
+              <Calendar className="inline h-3.5 w-3.5 mr-1.5 -mt-0.5" />
               Book a Demo
-            </div>
-            <h2 className="text-3xl font-bold text-gray-900 font-headline">
+            </h4>
+            <h2 className="text-2xl font-semibold text-ink-950 font-headline">
               Let's talk about your use case
             </h2>
-            <p className="mt-4 text-gray-600">
+            <p className="mt-2 text-ink-600">
               Schedule a 30-minute call to discuss how our AI agents can fit into your workflow.
             </p>
           </div>
-          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg">
+          <div className="overflow-hidden rounded-lg border border-ink-100 bg-white">
             <div
               className="calendly-inline-widget"
               data-url="https://calendly.com/krishnagai"
@@ -211,10 +190,10 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 py-8">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 text-sm text-gray-500 sm:px-6">
+      <footer className="border-t border-ink-100 py-6">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 text-sm text-ink-500 sm:px-6">
           <span>GaiGentic AI Hub</span>
-          <a href="https://gaigentic.ai" target="_blank" rel="noopener noreferrer" className="hover:text-gray-900 transition-colors">
+          <a href="https://gaigentic.ai" target="_blank" rel="noopener noreferrer" className="hover:text-ink-900 transition-colors duration-150">
             gaigentic.ai
           </a>
         </div>

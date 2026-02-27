@@ -61,18 +61,18 @@ export default function JsonEditor({
 
   return (
     <div className="relative">
-      <div className="flex items-center justify-between rounded-t-lg border border-b-0 border-gray-200 bg-white/80 px-3 py-2">
-        <span className="text-xs font-medium text-gray-600">
+      <div className="flex items-center justify-between rounded-t-lg border border-b-0 border-ink-200 bg-ink-25 px-3 py-2">
+        <span className="text-xs font-medium text-ink-500 uppercase tracking-widest">
           JSON Input
         </span>
         <div className="flex items-center gap-2">
           {error ? (
-            <span className="flex items-center gap-1 text-xs text-red-600">
+            <span className="flex items-center gap-1 text-xs text-signal-red">
               <AlertCircle className="h-3 w-3" />
               Invalid JSON
             </span>
           ) : value.trim() ? (
-            <span className="flex items-center gap-1 text-xs text-emerald-600">
+            <span className="flex items-center gap-1 text-xs text-signal-green">
               <Check className="h-3 w-3" />
               Valid
             </span>
@@ -80,7 +80,7 @@ export default function JsonEditor({
           {!readOnly && sampleInput && (
             <button
               onClick={populateSample}
-              className="rounded px-2 py-0.5 text-xs text-purple-600 hover:bg-purple-100"
+              className="rounded px-2 py-0.5 text-xs text-cobalt hover:bg-cobalt-light"
             >
               Populate Sample
             </button>
@@ -88,7 +88,7 @@ export default function JsonEditor({
           {!readOnly && value.trim() && (
             <button
               onClick={formatJson}
-              className="rounded px-2 py-0.5 text-xs text-purple-600 hover:bg-purple-100"
+              className="rounded px-2 py-0.5 text-xs text-cobalt hover:bg-cobalt-light"
             >
               Format
             </button>
@@ -101,7 +101,7 @@ export default function JsonEditor({
         placeholder={placeholder}
         readOnly={readOnly}
         spellCheck={false}
-        className="w-full rounded-b-lg border border-gray-200 bg-white p-4 font-mono text-sm text-emerald-600 placeholder-surface-200/30 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+        className="w-full rounded-b-lg border border-ink-200 bg-white p-4 font-mono text-sm text-signal-green placeholder-ink-400 focus:border-ink-300 focus:outline-none focus:ring-1 focus:ring-ink-300"
         rows={12}
       />
     </div>

@@ -16,18 +16,18 @@ export default function CodeBlock({ children, lang }: CodeBlockProps) {
   };
 
   return (
-    <div className="relative my-3 overflow-hidden rounded-lg border border-gray-200 bg-white">
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2">
-        <span className="text-xs font-medium text-gray-500">
+    <div className="relative my-3 overflow-hidden rounded-lg border border-ink-200 bg-white">
+      <div className="flex items-center justify-between border-b border-ink-200 bg-ink-25 px-4 py-2">
+        <span className="text-xs font-medium text-ink-500 uppercase tracking-widest">
           {lang || "code"}
         </span>
         <button
           onClick={copy}
-          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-600 hover:bg-white hover:text-gray-900"
+          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-ink-500 hover:bg-ink-50 hover:text-ink-900 transition-colors duration-150"
         >
           {copied ? (
             <>
-              <Check className="h-3 w-3 text-emerald-600" /> Copied
+              <Check className="h-3 w-3 text-signal-green" /> Copied
             </>
           ) : (
             <>
@@ -37,7 +37,7 @@ export default function CodeBlock({ children, lang }: CodeBlockProps) {
         </button>
       </div>
       <pre className="overflow-x-auto p-4">
-        <code className="font-mono text-sm text-emerald-600">{children}</code>
+        <code className="font-mono text-sm text-ink-900">{children}</code>
       </pre>
     </div>
   );

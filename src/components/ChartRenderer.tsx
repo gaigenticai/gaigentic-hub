@@ -22,12 +22,12 @@ import {
 import type { ChartConfig } from "../types";
 
 const DEFAULT_COLORS = [
-  "#6366f1",
-  "#8b5cf6",
-  "#a78bfa",
-  "#c4b5fd",
-  "#818cf8",
-  "#4f46e5",
+  "#0052CC",
+  "#FF7A00",
+  "#0D7C3F",
+  "#6B6B78",
+  "#B25000",
+  "#3D3D47",
 ];
 
 export default function ChartRenderer({ config }: { config: ChartConfig }) {
@@ -36,7 +36,7 @@ export default function ChartRenderer({ config }: { config: ChartConfig }) {
   return (
     <div className="card my-4 overflow-hidden">
       {title && (
-        <h4 className="mb-4 text-sm font-semibold text-gray-900">{title}</h4>
+        <h4 className="mb-4">{title}</h4>
       )}
       <ResponsiveContainer width="100%" height={300}>
         {type === "bar" ? (

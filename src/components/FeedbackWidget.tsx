@@ -20,8 +20,8 @@ export default function FeedbackWidget({ auditLogId }: Props) {
 
   if (submitted) {
     return (
-      <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center">
-        <p className="text-sm font-medium text-emerald-700">
+      <div className="mt-4 rounded-lg border border-signal-green/20 bg-signal-green-light p-4 text-center">
+        <p className="text-sm font-medium text-signal-green">
           Thank you for your feedback! It helps us improve.
         </p>
       </div>
@@ -48,8 +48,8 @@ export default function FeedbackWidget({ auditLogId }: Props) {
   };
 
   return (
-    <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
-      <p className="mb-3 text-sm font-semibold text-gray-700">
+    <div className="mt-4 rounded-lg border border-ink-100 bg-white p-5">
+      <p className="mb-3 text-sm font-semibold text-ink-700">
         How was this response?
       </p>
 
@@ -61,19 +61,19 @@ export default function FeedbackWidget({ auditLogId }: Props) {
             onClick={() => setRating(star)}
             onMouseEnter={() => setHoveredStar(star)}
             onMouseLeave={() => setHoveredStar(0)}
-            className="transition-transform hover:scale-110"
+            className="transition-colors duration-150"
           >
             <Star
               className={`h-7 w-7 transition-colors ${
                 star <= (hoveredStar || rating)
-                  ? "fill-amber-400 text-amber-400"
-                  : "text-gray-300"
+                  ? "fill-signal-amber text-signal-amber"
+                  : "text-ink-300"
               }`}
             />
           </button>
         ))}
         {rating > 0 && (
-          <span className="ml-2 self-center text-xs text-gray-500">
+          <span className="ml-2 self-center text-xs text-ink-500">
             {["", "Poor", "Fair", "Good", "Great", "Excellent"][rating]}
           </span>
         )}
@@ -93,7 +93,7 @@ export default function FeedbackWidget({ auditLogId }: Props) {
           {/* Correction toggle */}
           <button
             onClick={() => setShowCorrection(!showCorrection)}
-            className="mb-2 flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800"
+            className="mb-2 flex items-center gap-1 text-xs text-cobalt hover:text-cobalt-hover"
           >
             {showCorrection ? (
               <ChevronUp className="h-3 w-3" />
@@ -114,13 +114,13 @@ export default function FeedbackWidget({ auditLogId }: Props) {
           )}
 
           {error && (
-            <p className="mb-2 text-xs text-red-500">{error}</p>
+            <p className="mb-2 text-xs text-signal-red">{error}</p>
           )}
 
           <button
             onClick={handleSubmit}
             disabled={loading || rating === 0}
-            className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-ink-950 px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-ink-800 disabled:opacity-50"
           >
             <Send className="h-3.5 w-3.5" />
             {loading ? "Submitting..." : "Submit Feedback"}

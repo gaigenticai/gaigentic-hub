@@ -102,6 +102,7 @@ playground.post("/execute", async (c) => {
     model?: string;
     user_api_key?: string;
     document_ids?: string[];
+    prompt?: string;
   }>();
 
   if (!body.agent_slug || !body.input) {
@@ -260,8 +261,11 @@ playground.post("/execute", async (c) => {
     if (docs.results.length > 0) {
       const docTexts = docs.results
         .map((d) => {
-          const text = d.server_extracted_text || d.client_extracted_text || "";
-          return `Document: ${d.file_name}\n---\n${text}`;
+          // Prefer whichever extraction is longer (more complete)
+          const server = d.server_extracted_text || "";
+          const client = d.client_extracted_text || "";
+          const text = server.length >= client.length ? server : client;
+          return `Document: ${d.file_name}\n---\n${text || "(no text extracted)"}`;
         })
         .join("\n---\n");
       documentContext =
@@ -280,9 +284,18 @@ playground.post("/execute", async (c) => {
     VISUAL_OUTPUT_INSTRUCTIONS;
 
   const hasEmptyInput = Object.keys(body.input).length === 0;
-  const inputText = hasEmptyInput && documentContext
-    ? "Please analyze the uploaded documents provided in the system context."
-    : JSON.stringify(body.input, null, 2);
+  const userPrompt = body.prompt?.trim() || "";
+
+  let inputText: string;
+  if (hasEmptyInput && !userPrompt && documentContext) {
+    inputText = "Please analyze the uploaded documents provided in the system context.";
+  } else {
+    const parts: string[] = [];
+    if (userPrompt) parts.push(userPrompt);
+    if (!hasEmptyInput) parts.push("Input data:\n" + JSON.stringify(body.input, null, 2));
+    inputText = parts.join("\n\n") || JSON.stringify(body.input, null, 2);
+  }
+
   const messages = [
     { role: "system" as const, content: systemPrompt },
     { role: "user" as const, content: inputText },

@@ -24,13 +24,13 @@ export default function JurisdictionPills({ jurisdictions }: Props) {
   if (codes.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       {codes.map((code) => {
         const info = JURISDICTION_MAP[code] || { flag: "\u{1F30D}", label: code };
         return (
           <span
             key={code}
-            className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600 shadow-sm"
+            className="inline-flex items-center gap-1.5 rounded-md border border-ink-200 bg-ink-50 px-2.5 py-1 text-xs font-medium text-ink-600"
           >
             <span className="text-sm">{info.flag}</span>
             {info.label}

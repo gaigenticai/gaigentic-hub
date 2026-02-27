@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { Agent } from "../types";
 import AuditBadge from "./AuditBadge";
 import JurisdictionPills from "./JurisdictionPills";
@@ -10,29 +10,12 @@ interface Props {
 
 export default function FeaturedAgent({ agent }: Props) {
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-xl">
-      {/* Background gradient */}
-      <div
-        className="absolute inset-0 opacity-[0.06]"
-        style={{
-          background: `radial-gradient(ellipse at top right, ${agent.color}, transparent 70%), radial-gradient(ellipse at bottom left, ${agent.color}, transparent 70%)`,
-        }}
-      />
-
-      {/* Floating orb */}
-      <div
-        className="absolute -right-20 -top-20 h-64 w-64 rounded-full blur-3xl opacity-10 animate-float"
-        style={{ backgroundColor: agent.color }}
-      />
-
-      <div className="relative flex flex-col gap-6 p-8 sm:flex-row sm:items-center sm:p-10">
+    <div className="rounded-lg border border-ink-100 bg-white p-6 sm:p-8">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
         {/* Icon */}
         <div
-          className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl text-4xl shadow-lg animate-float"
-          style={{
-            backgroundColor: `${agent.color}15`,
-            boxShadow: `0 8px 32px ${agent.color}20`,
-          }}
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg text-3xl"
+          style={{ backgroundColor: `${agent.color}12` }}
         >
           {agent.icon}
         </div>
@@ -40,16 +23,13 @@ export default function FeaturedAgent({ agent }: Props) {
         {/* Content */}
         <div className="flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
-              <Sparkles className="h-3 w-3" />
-              Featured
-            </span>
+            <span className="tag-green">Featured</span>
             <AuditBadge />
           </div>
-          <h2 className="mb-1 text-2xl font-bold text-gray-900 font-headline sm:text-3xl">
+          <h2 className="mb-1 text-xl font-semibold text-ink-950 font-headline sm:text-2xl">
             {agent.name}
           </h2>
-          <p className="mb-4 max-w-xl text-gray-600 leading-relaxed">
+          <p className="mb-4 max-w-xl text-sm text-ink-600 leading-relaxed">
             {agent.tagline}
           </p>
           <div className="mb-5">

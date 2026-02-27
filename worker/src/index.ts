@@ -86,14 +86,58 @@ app.post("/chat/send", async (c) => {
   const rl = await checkRateLimit(c.env.DB, `chat:${ip}`, 5, 60000);
   if (!rl.allowed) return c.json({ error: "Too many messages, try again later" }, 429);
 
-  const sent = await sendChaosbirdMessage(
-    c.env.CHAOSBIRD_API_URL,
-    c.env.CHAOSBIRD_ADMIN_TOKEN,
-    c.env.CHAOSBIRD_ADMIN_USERNAME,
-    `[${body.username}] ${body.message}`,
-  );
+  // Send to Krishna's inbox with sender_name = user's chaosbird username
+  // so it shows as a direct message from the user, not from the app
+  let sent = false;
+  try {
+    const res = await fetch(`${c.env.CHAOSBIRD_API_URL}/inbox/${c.env.CHAOSBIRD_ADMIN_USERNAME}/message`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${c.env.CHAOSBIRD_ADMIN_TOKEN}`,
+      },
+      body: JSON.stringify({
+        sender_name: body.username,
+        content: body.message,
+      }),
+    });
+    sent = res.ok;
+  } catch {
+    // silent fail
+  }
 
   return c.json({ success: sent });
+});
+
+// ==========================================
+// Chat proxy: fetch messages between user and Krishna
+// ==========================================
+app.get("/chat/messages", async (c) => {
+  const username = c.req.query("username");
+  if (!username) return c.json({ error: "username required" }, 400);
+  if (!c.env.CHAOSBIRD_ADMIN_TOKEN) return c.json({ error: "Chat not configured" }, 500);
+
+  const before = c.req.query("before") || "";
+  const limit = c.req.query("limit") || "50";
+
+  try {
+    let url = `${c.env.CHAOSBIRD_API_URL}/inbox/${c.env.CHAOSBIRD_ADMIN_USERNAME}/messages?with=${username}&limit=${limit}`;
+    if (before) url += `&before=${encodeURIComponent(before)}`;
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${c.env.CHAOSBIRD_ADMIN_TOKEN}` },
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return c.json({ messages: [], error: `Chaosbird returned ${res.status}`, detail: body }, 502);
+    }
+
+    const data = await res.json() as { messages: unknown[] };
+    return c.json(data);
+  } catch (err) {
+    return c.json({ messages: [], error: "Failed to fetch messages" }, 500);
+  }
 });
 
 // ==========================================

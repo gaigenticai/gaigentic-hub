@@ -100,7 +100,7 @@ class ZaiProvider implements LLMProvider {
   }
 
   async stream(params: ChatParams): Promise<ReadableStream> {
-    // z.ai's streaming can hang — use non-streaming and simulate SSE
+    // z.ai's native SSE endpoint hangs intermittently — fetch full response then emit as SSE
     const response = await this.chat(params);
     const encoder = new TextEncoder();
 
