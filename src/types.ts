@@ -140,6 +140,7 @@ export interface KPIConfig {
     value: string;
     change?: string;
     trend?: "up" | "down" | "stable";
+    description?: string;
   }>;
 }
 

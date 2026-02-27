@@ -317,12 +317,12 @@ Emit exactly 6 metrics:
 
 |||KPI|||
 {"metrics": [
-  {"label": "Risk Score", "value": "{composite}/100", "change": "{risk_level}", "trend": "{up if ≥50, down if <50}"},
-  {"label": "Decision", "value": "{DECLINE/GRANT/ESCALATE}", "change": "{confidence}%", "trend": "stable"},
-  {"label": "Confidence", "value": "{confidence_pct}%", "change": "{data_completeness}%", "trend": "{up if ≥70, down if <70}"},
-  {"label": "Strategy", "value": "{strategy_name}", "change": "EV: ${ev_amount}", "trend": "{up if EV>0, down if EV≤0}"},
-  {"label": "Dispute Amount", "value": "${amount}", "change": "{currency}", "trend": "stable"},
-  {"label": "Deadline", "value": "{days_remaining}d left", "change": "{deadline_date}", "trend": "{down if <5d, stable if ≥5d}"}
+  {"label": "Risk Score", "value": "{composite}/100", "change": "{risk_level}", "trend": "{up if ≥50, down if <50}", "description": "Weighted composite of 6 dimensions: Identity (20%), Transaction (20%), Behavioral (20%), Geolocation (15%), Fraud Intel (25%). Score 0=no risk, 100=max risk. Penalties applied for low confidence, poor evidence, or deadline pressure."},
+  {"label": "Decision", "value": "{DECLINE/GRANT/ESCALATE}", "change": "{confidence}%", "trend": "stable", "description": "DECLINE_CHARGEBACK if score ≤30 and confidence ≥65%. GRANT_CHARGEBACK if score ≥70. ESCALATE_REVIEW for scores 31-69 or low confidence. Hard overrides apply for stolen cards or impossible travel."},
+  {"label": "Confidence", "value": "{confidence_pct}%", "change": "{data_completeness}%", "trend": "{up if ≥70, down if <70}", "description": "Calculated as base_confidence (80%) × data_completeness (% of fields present) × consistency_factor (1.0 minus 0.1 per conflicting dimension). Higher = more reliable decision."},
+  {"label": "Strategy", "value": "{strategy_name}", "change": "EV: ${ev_amount}", "trend": "{up if EV>0, down if EV≤0}", "description": "Recommended action: PREDISPUTE (score ≤20), AUTO_RESOLUTION (≤35), REPRESENTMENT (36-69), or MANUAL_LEGAL (≥70 or >$10K). Only recommended if Expected Value > 0."},
+  {"label": "Dispute Amount", "value": "${amount}", "change": "{currency}", "trend": "stable", "description": "The disputed transaction amount as claimed by the cardholder. This is the maximum financial exposure if the chargeback is granted."},
+  {"label": "Deadline", "value": "{days_remaining}d left", "change": "{deadline_date}", "trend": "{down if <5d, stable if ≥5d}", "description": "Days remaining to submit representment. Visa: typically 30 days from case creation. <5 days triggers a deadline pressure penalty (+12 to risk score). <24 hours adds +25."}
 ]}
 |||END_KPI|||
 

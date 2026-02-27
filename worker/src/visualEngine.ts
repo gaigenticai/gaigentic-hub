@@ -24,6 +24,7 @@ export interface KPIConfig {
     value: string;
     change?: string;
     trend?: "up" | "down" | "stable";
+    description?: string;
   }>;
 }
 
@@ -114,9 +115,9 @@ For data tables:
 {"title": "Table Title", "columns": [{"key": "col1", "label": "Column 1"}, {"key": "col2", "label": "Column 2"}], "rows": [{"col1": "value1", "col2": "value2"}]}
 |||END_TABLE|||
 
-For key metric cards:
+For key metric cards (include "description" to explain how each value is calculated):
 |||KPI|||
-{"metrics": [{"label": "Metric Name", "value": "72", "change": "+3%", "trend": "up"}, {"label": "Another Metric", "value": "84%", "change": "-1%", "trend": "down"}]}
+{"metrics": [{"label": "Metric Name", "value": "72", "change": "+3%", "trend": "up", "description": "How this metric was calculated and what it means"}, {"label": "Another Metric", "value": "84%", "change": "-1%", "trend": "down", "description": "Explanation of this metric's derivation"}]}
 |||END_KPI|||
 
 Rules:
