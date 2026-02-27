@@ -325,41 +325,42 @@ export default function Playground() {
           )}
         </div>
       ) : (
-        /* Full input form before execution */
-        <div className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
-          <div className="space-y-4">
-            {/* Agent selector */}
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-ink-500 uppercase tracking-widest">
-                Select Agent
-              </label>
-              <select
-                value={selectedSlug}
-                onChange={(e) => {
-                  setSelectedSlug(e.target.value);
-                  handleReset();
-                }}
-                className="input"
-              >
-                {agents.map((a) => (
-                  <option key={a.slug} value={a.slug}>
-                    {a.name} — {a.tagline}
-                  </option>
-                ))}
-              </select>
+        /* Full-width input form before execution */
+        <div className="space-y-4">
+          {/* Agent selector — full width */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-ink-500 uppercase tracking-widest">
+              Select Agent
+            </label>
+            <select
+              value={selectedSlug}
+              onChange={(e) => {
+                setSelectedSlug(e.target.value);
+                handleReset();
+              }}
+              className="input"
+            >
+              {agents.map((a) => (
+                <option key={a.slug} value={a.slug}>
+                  {a.name} — {a.tagline}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Agent instructions */}
+          {selectedAgent?.playground_instructions && (
+            <div className="flex gap-2.5 rounded-lg border border-cobalt/15 bg-cobalt-light px-3.5 py-2.5">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-cobalt" />
+              <p className="text-sm leading-relaxed text-ink-600 whitespace-pre-line">
+                {selectedAgent.playground_instructions}
+              </p>
             </div>
+          )}
 
-            {/* Agent instructions */}
-            {selectedAgent?.playground_instructions && (
-              <div className="flex gap-2.5 rounded-lg border border-cobalt/15 bg-cobalt-light px-3.5 py-2.5">
-                <Info className="mt-0.5 h-4 w-4 shrink-0 text-cobalt" />
-                <p className="text-sm leading-relaxed text-ink-600 whitespace-pre-line">
-                  {selectedAgent.playground_instructions}
-                </p>
-              </div>
-            )}
-
-            {/* JSON Input */}
+          {/* Two-column: JSON + Files/Prompt side by side */}
+          <div className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
+            {/* Left: JSON Input */}
             <JsonEditor
               value={inputJson}
               onChange={setInputJson}
@@ -367,43 +368,45 @@ export default function Playground() {
               sampleInput={selectedAgent?.sample_input}
             />
 
-            {/* File Upload */}
-            <FileUpload
-              documents={documents}
-              isUploading={isUploading}
-              onAddFiles={addFiles}
-              onRemoveFile={removeFile}
-            />
-
-            {/* Additional Prompt */}
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-ink-500 uppercase tracking-widest">
-                Your Instructions <span className="normal-case font-normal text-ink-400">(optional)</span>
-              </label>
-              <textarea
-                value={userPrompt}
-                onChange={(e) => setUserPrompt(e.target.value)}
-                placeholder="e.g. Categorize all transactions and flag any expenses over $100. Focus on recurring payments."
-                className="input min-h-[80px] resize-y"
-                rows={3}
+            {/* Right: Files + Prompt */}
+            <div className="space-y-4">
+              <FileUpload
+                documents={documents}
+                isUploading={isUploading}
+                onAddFiles={addFiles}
+                onRemoveFile={removeFile}
               />
-              <p className="mt-1 text-[11px] text-ink-400">
-                Tell the AI what to do — in plain English. Combine with JSON input or documents above.
-              </p>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-ink-500 uppercase tracking-widest">
+                  Your Instructions <span className="normal-case font-normal text-ink-400">(optional)</span>
+                </label>
+                <textarea
+                  value={userPrompt}
+                  onChange={(e) => setUserPrompt(e.target.value)}
+                  placeholder="e.g. Categorize all transactions and flag any expenses over $100. Focus on recurring payments."
+                  className="input min-h-[80px] resize-y"
+                  rows={3}
+                />
+                <p className="mt-1 text-[11px] text-ink-400">
+                  Tell the AI what to do — in plain English. Combine with JSON input or documents above.
+                </p>
+              </div>
             </div>
+          </div>
 
-            {/* Provider */}
-            <ProviderSelector
-              provider={provider}
-              onProviderChange={setProvider}
-              apiKey={apiKey}
-              onApiKeyChange={setApiKey}
-            />
-
-            {/* Actions */}
-            <div className="flex gap-3">
+          {/* Provider + Actions — full width row */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex-1">
+              <ProviderSelector
+                provider={provider}
+                onProviderChange={setProvider}
+                apiKey={apiKey}
+                onApiKeyChange={setApiKey}
+              />
+            </div>
+            <div className="flex gap-3 shrink-0">
               {isStreaming ? (
-                <button onClick={stop} className="btn-secondary flex-1">
+                <button onClick={stop} className="btn-secondary">
                   <Square className="h-4 w-4" />
                   Stop
                 </button>
@@ -411,7 +414,7 @@ export default function Playground() {
                 <button
                   onClick={handleExecute}
                   disabled={(!isValidJson && !hasDocuments && !hasPrompt) || (hasInput && !isValidJson) || !selectedAgent || isUploading}
-                  className="btn-primary flex-1"
+                  className="btn-primary"
                 >
                   <Play className="h-4 w-4" />
                   Execute
@@ -425,18 +428,6 @@ export default function Playground() {
               <button onClick={handleReset} className="btn-secondary">
                 <RotateCcw className="h-4 w-4" />
               </button>
-            </div>
-          </div>
-
-          {/* Right: Output placeholder before execution */}
-          <div className="space-y-4">
-            <div className="card min-h-[400px] overflow-hidden">
-              <div className="mb-4 flex items-center justify-between">
-                <h4>Response</h4>
-              </div>
-              <div className="flex h-64 items-center justify-center text-sm text-ink-300">
-                Execute an agent to see the response here
-              </div>
             </div>
           </div>
         </div>
