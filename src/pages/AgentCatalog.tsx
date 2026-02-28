@@ -36,17 +36,6 @@ export default function AgentCatalog() {
     return true;
   });
 
-  // Group by category for sections
-  const categorized = categories.filter((c) => c.id !== "").reduce(
-    (acc, cat) => {
-      const catAgents = agents.filter((a) => a.category === cat.id);
-      if (catAgents.length > 0) {
-        acc.push({ ...cat, agents: catAgents });
-      }
-      return acc;
-    },
-    [] as Array<{ id: string; label: string; agents: Agent[] }>,
-  );
 
   return (
     <div>
@@ -102,51 +91,22 @@ export default function AgentCatalog() {
             </div>
           ))}
         </div>
-      ) : category ? (
-        /* Filtered grid when category selected */
-        filtered.length === 0 ? (
-          <div className="card text-center py-16">
-            <Bot className="mx-auto mb-3 h-8 w-8 text-ink-300" />
-            <p className="text-ink-500">No agents in this category yet.</p>
-          </div>
-        ) : (
+      ) : filtered.length === 0 ? (
+        <div className="card text-center py-16">
+          <Bot className="mx-auto mb-3 h-8 w-8 text-ink-300" />
+          <p className="text-ink-500">
+            {category ? "No agents in this category yet." : "No agents available yet. Check back later or contact us to learn more."}
+          </p>
+        </div>
+      ) : (
+        <div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((agent) => (
               <AgentCard key={agent.id} agent={agent} />
             ))}
           </div>
-        )
-      ) : (
-        /* Sections when no category filter */
-        <div className="space-y-10">
-          {categorized.map((section) => (
-            <div key={section.id}>
-              <div className="mb-3 flex items-center gap-2">
-                <h4 className="text-xs font-semibold uppercase tracking-widest text-ink-500">
-                  {section.label}
-                </h4>
-                <span className="rounded-md bg-ink-50 px-1.5 py-0.5 text-[10px] font-medium text-ink-400">
-                  {section.agents.length}
-                </span>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {section.agents.map((agent) => (
-                  <AgentCard key={agent.id} agent={agent} />
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {categorized.length === 0 && !loadError && (
-            <div className="card text-center py-16">
-              <Bot className="mx-auto mb-3 h-8 w-8 text-ink-300" />
-              <p className="text-ink-500">
-                No agents available yet. Check back later or contact us to learn more.
-              </p>
-            </div>
-          )}
           {loadError && (
-            <div className="flex items-start gap-2 rounded-lg border border-signal-red/20 bg-signal-red-light px-4 py-3">
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-signal-red/20 bg-signal-red-light px-4 py-3">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-signal-red" />
               <p className="text-sm text-signal-red">{loadError}</p>
             </div>
