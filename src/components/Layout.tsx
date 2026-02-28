@@ -14,8 +14,8 @@ import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 
 const NAV_ITEMS = [
-  { to: "/agents", label: "Agents", icon: Bot },
-  { to: "/playground", label: "Playground", icon: Play },
+  { to: "/agents", label: "Agents", icon: Bot, auth: true },
+  { to: "/playground", label: "Playground", icon: Play, auth: true },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, auth: true },
   { to: "/settings", label: "Settings", icon: Settings, auth: true },
 ];

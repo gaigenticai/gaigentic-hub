@@ -66,7 +66,7 @@ export default function Landing() {
           </Link>
           <div className="flex items-center gap-2">
             <Link
-              to="/agents"
+              to="/signup"
               className="hidden rounded-lg px-3 py-2 text-sm font-medium text-ink-500 hover:text-ink-900 transition-colors duration-150 sm:block"
             >
               Browse Agents
@@ -112,7 +112,7 @@ export default function Landing() {
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
-              to="/agents"
+              to="/signup"
               className="btn-secondary px-6 py-3 text-base"
             >
               Browse Agents
