@@ -59,6 +59,8 @@ export const dataValidationTool: ToolDefinition = {
   name: "data_validation",
   description:
     "Validate and analyze data: card numbers (Luhn), structuring detection, velocity analysis, amount threshold checks, geographic risk assessment, and temporal pattern analysis. Essential for compliance checks.",
+  category: "validation",
+  stepType: "rule_check",
   parameters: {
     validation_type: {
       type: "string",

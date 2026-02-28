@@ -79,24 +79,7 @@ function parseToolCall(text: string): {
   return { toolCall: null, textBefore: text, textAfter: "" };
 }
 
-/**
- * Classify which step type a tool belongs to.
- */
-function classifyStepType(toolName: string): StepType {
-  switch (toolName) {
-    case "rag_query":
-    case "regulatory_lookup":
-      return "data_fetch";
-    case "calculate":
-      return "tool_call";
-    case "data_validation":
-      return "rule_check";
-    case "document_analysis":
-      return "data_fetch";
-    default:
-      return "tool_call";
-  }
-}
+// No hardcoded classification — tools declare their own stepType via ToolDefinition.stepType
 
 /**
  * Emit a step event to the SSE stream.
@@ -222,11 +205,10 @@ export function runAgenticLoop(params: AgenticLoopParams): ReadableStream {
             continue;
           }
 
-          // Step: Tool execution
+          // Step: Tool execution — stepType comes from the tool itself
           stepCounter++;
-          const toolStepType = classifyStepType(toolCall.tool);
           const toolStep: StepEvent = {
-            step_type: toolStepType,
+            step_type: toolDef.stepType,
             tool: toolCall.tool,
             label: getToolLabel(toolCall.tool, toolCall.params),
             status: "running",
@@ -349,25 +331,17 @@ export function runAgenticLoop(params: AgenticLoopParams): ReadableStream {
 
 /**
  * Get a human-readable label for a tool step.
+ * Generic — reads tool name and params, no hardcoded per-tool logic.
  */
 function getToolLabel(
   toolName: string,
   params: Record<string, unknown>,
 ): string {
-  switch (toolName) {
-    case "rag_query":
-      return `Searching knowledge base: "${(params.query as string)?.slice(0, 60) || "..."}"`;
-    case "calculate":
-      return `Calculating: ${(params.expression as string)?.slice(0, 60) || "..."}`;
-    case "data_validation":
-      return `Validating ${params.validation_type || "data"}: ${(params.value as string)?.slice(0, 30) || "..."}`;
-    case "document_analysis":
-      return `Analyzing documents: ${params.action || "search"}`;
-    case "regulatory_lookup":
-      return `Looking up ${params.jurisdiction || ""} regulations: ${(params.topic as string)?.slice(0, 40) || "..."}`;
-    default:
-      return `Running ${toolName}`;
-  }
+  // Build label from the first string param value as context
+  const firstParamValue = Object.values(params).find((v) => typeof v === "string") as string | undefined;
+  const context = firstParamValue?.slice(0, 60) || "";
+  const readableName = toolName.replace(/_/g, " ");
+  return context ? `${readableName}: ${context}` : `Running ${readableName}`;
 }
 
 /**

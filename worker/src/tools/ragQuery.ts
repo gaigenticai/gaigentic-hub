@@ -9,6 +9,8 @@ export const ragQueryTool: ToolDefinition = {
   name: "rag_query",
   description:
     "Search the knowledge base for relevant regulations, policies, or reference data. Use this when you need specific regulatory information, precedents, or domain knowledge to support your analysis.",
+  category: "knowledge",
+  stepType: "data_fetch",
   parameters: {
     query: {
       type: "string",

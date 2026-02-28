@@ -10,6 +10,8 @@ export const regulatoryLookupTool: ToolDefinition = {
   name: "regulatory_lookup",
   description:
     "Look up specific regulations, compliance rules, and legal requirements by jurisdiction (US, EU, India). Covers AML/CFT thresholds, filing requirements, chargeback rules, consumer protection, sanctions, and card network policies.",
+  category: "compliance",
+  stepType: "data_fetch",
   parameters: {
     jurisdiction: {
       type: "string",
@@ -252,6 +254,115 @@ function getBuiltInRegulations(
         bank_resolution: "Must resolve within 90 days",
         credit_timeline: "Shadow/provisional credit within 10 working days (T+10)",
         upi_disputes: "NPCI Dispute Resolution Mechanism — 30-day resolution timeline",
+      };
+    }
+  }
+
+  // ── US Lending Regulations ──
+  if (jurisdiction === "US" || jurisdiction === "ALL") {
+    if (t.includes("tila") || t.includes("truth in lending") || t.includes("lending") || t.includes("loan") || t.includes("apr") || t.includes("disclosure")) {
+      results.US_TILA = {
+        regulation: "Truth in Lending Act (TILA) — Regulation Z (12 CFR Part 1026)",
+        requirement: "Lenders must disclose APR, finance charges, total of payments, and payment schedule before loan consummation",
+        rescission_right: "3 business days right of rescission for refinances and HELOCs on primary residence",
+        advertising: "Triggering terms (specific rate/payment/term) require full disclosure of all terms",
+        penalties: "Civil liability: actual damages + statutory damages up to $5,000 individual / $500,000 class action",
+        hoepa: "High-cost mortgage triggers (APR > 6.5% above APOR for first liens) require additional protections",
+      };
+    }
+    if (t.includes("ecoa") || t.includes("equal credit") || t.includes("discrimination") || t.includes("fair lending")) {
+      results.US_ECOA = {
+        regulation: "Equal Credit Opportunity Act (ECOA) — Regulation B (12 CFR Part 1002)",
+        prohibited_bases: ["race", "color", "religion", "national origin", "sex", "marital status", "age", "receipt of public assistance"],
+        adverse_action: "Must provide notice within 30 days with specific reasons for denial",
+        record_keeping: "25 months for applications; 12 months for credit monitoring records",
+        penalties: "Actual damages + punitive damages up to $10,000 individual / $500,000 class action",
+      };
+    }
+    if (t.includes("respa") || t.includes("real estate") || t.includes("mortgage") || t.includes("closing")) {
+      results.US_RESPA = {
+        regulation: "Real Estate Settlement Procedures Act (RESPA) — Regulation X",
+        loan_estimate: "Must be provided within 3 business days of application",
+        closing_disclosure: "Must be provided 3 business days before closing",
+        prohibitions: ["Kickbacks/referral fees", "Excessive escrow deposits", "Seller-required title insurance"],
+        servicing_rules: "Transfer notice 15 days before, error resolution within 30 days",
+      };
+    }
+    if (t.includes("fdcpa") || t.includes("debt collection") || t.includes("collections") || t.includes("collector")) {
+      results.US_FDCPA = {
+        regulation: "Fair Debt Collection Practices Act (FDCPA) — 15 USC §1692 + Regulation F (12 CFR §1006)",
+        call_limits: "Maximum 7 calls per 7 days per debt per phone number; 1 call per day to same number",
+        time_window: "8:00 AM - 9:00 PM in consumer's local time zone",
+        validation_notice: "Within 5 days of first contact: amount, creditor name, itemization, 30-day dispute window",
+        cease_communication: "Must honor written cease requests — continued contact is a violation",
+        voicemail: "Only: collector name, callback request, phone number. No mention of 'debt'",
+        sms_email: "SMS requires prior consent + 'Reply STOP'; email max 1/day with opt-out mechanism",
+        time_barred_debts: "Cannot sue or threaten to sue on statute-of-limitations-expired debts",
+        penalties: "Up to $1,000 per violation + attorney fees; TCPA: $500-$1,500 per call/text",
+        state_variations: {
+          WA: "3 calls per 7 days",
+          MA: "2 calls per 7 days",
+          NY: "4 calls per 7 days",
+          CA: "5 calls per 7 days",
+        },
+      };
+    }
+  }
+
+  // ── India Lending & Collections ──
+  if (jurisdiction === "IN" || jurisdiction === "ALL") {
+    if (t.includes("lending") || t.includes("loan") || t.includes("rbi lending") || t.includes("interest rate") || t.includes("nbfc")) {
+      results.IN_RBI_LENDING = {
+        regulation: "RBI Master Direction on Regulatory Framework for Microfinance Loans + Fair Practices Code",
+        interest_rate_cap: "Microfinance: pricing cap based on cost of funds + margin. NBFCs must disclose all-in cost",
+        income_verification: "Household income verification mandatory for all retail loans",
+        dti_limit: "EMI/NMI ratio should not exceed 50% for microfinance; guidelines vary for other products",
+        prepayment: "No prepayment penalty allowed on floating rate loans",
+        digital_lending: "RBI Digital Lending Guidelines 2022: all disbursements/repayments through borrower's bank account only",
+        loan_agreement: "Must provide Key Fact Statement (KFS) with all-inclusive APR before sanctioning",
+        cooling_off: "3-day look-up period for digital loans — borrower can exit without penalty",
+      };
+    }
+    if (t.includes("npa") || t.includes("non performing") || t.includes("provision") || t.includes("write off") || t.includes("collection") || t.includes("recovery")) {
+      results.IN_RBI_NPA = {
+        regulation: "RBI Master Circular on IRAC Norms (Income Recognition and Asset Classification)",
+        npa_classification: "90+ DPD = NPA (Non-Performing Asset)",
+        stages: {
+          standard: "0-89 DPD — 0.40% provision",
+          sub_standard: "90-365 DPD — 15% provision (25% for unsecured)",
+          doubtful_1: "12-24 months — 25% provision + 100% of unsecured portion",
+          doubtful_2: "24-36 months — 40% provision + 100% of unsecured portion",
+          doubtful_3: "36+ months — 100% provision",
+          loss: "Uncollectible — 100% provision",
+        },
+        recovery_channels: ["SARFAESI Act (secured assets)", "DRT (Debt Recovery Tribunal)", "Lok Adalat (up to ₹20 lakh)", "IBC (Insolvency & Bankruptcy Code)"],
+        collection_hours: "8 AM - 7 PM only",
+        prohibited: ["Physical force", "Coercion", "Abusive language", "Workplace visits (unless requested)", "Third-party disclosure"],
+        rbi_ombudsman: "Borrower can file complaint with RBI Ombudsman for collection harassment",
+      };
+    }
+  }
+
+  // ── EU Lending & Collections ──
+  if (jurisdiction === "EU" || jurisdiction === "ALL") {
+    if (t.includes("lending") || t.includes("consumer credit") || t.includes("mortgage") || t.includes("ccd")) {
+      results.EU_CCD = {
+        regulation: "Consumer Credit Directive (CCD) 2008/48/EC + Mortgage Credit Directive 2014/17/EU",
+        pre_contractual: "Standard European Consumer Credit Information (SECCI) form required",
+        aprc: "Annual Percentage Rate of Charge (APRC) must be disclosed — EU harmonized calculation",
+        right_of_withdrawal: "14 calendar days withdrawal right for consumer credit",
+        creditworthiness: "Mandatory creditworthiness assessment before granting credit",
+        early_repayment: "Consumer right to early repayment; compensation limited to 1% (0.5% if < 1 year remaining)",
+        responsible_lending: "Prohibition of credit granted solely based on property value without repayment capacity assessment",
+      };
+    }
+    if (t.includes("collection") || t.includes("debt") || t.includes("recovery")) {
+      results.EU_DEBT_COLLECTION = {
+        framework: "No single EU debt collection directive — governed by national laws + GDPR",
+        gdpr_impact: "Debtor data processing requires legal basis; data minimization applies; right to contest automated decisions",
+        cross_border: "European Order for Payment (EOP) for cross-border claims up to any amount",
+        statute_of_limitations: "Varies by country: France 5 years, Germany 3 years, UK 6 years, Spain 5 years",
+        unfair_practices: "Unfair Commercial Practices Directive 2005/29/EC applies to debt collection conduct",
       };
     }
   }

@@ -280,7 +280,7 @@ playground.post("/execute", async (c) => {
 
   // Resolve agent tools
   const agentTools = getAgentTools(agent.tools);
-  const toolInstructions = buildToolInstructions(agentTools, agent.slug);
+  const toolInstructions = buildToolInstructions(agentTools);
 
   // Build messages
   const systemPrompt =

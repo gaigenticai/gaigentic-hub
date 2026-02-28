@@ -162,6 +162,36 @@ const SEED_DOCUMENTS = [
     source_name: "Chargeback Analysis Strategy",
     content: `Friendly Fraud vs True Fraud. Friendly fraud: cardholder made purchase, claims otherwise. Indicators: matching address, device, prior history. Defense: CE3, delivery proof, usage logs. True fraud: genuinely unauthorized. Indicators: unusual location, new device, address mismatch. Defense: 3DS, device intelligence. Authentication Evidence: 3DS 2.x ECI 05 = fully authenticated, strongest defense, liability shifts to issuer. 3DS 2.x ECI 06 = attempted. No 3DS = merchant bears liability. AVS full match = strong legitimate indicator. CVV match = card access evidence. Delivery: signed confirmation strongest, tracking to billing address strong, no tracking weak. Representment: EV = P(win) × amount - cost - penalty. Compelling evidence: receipt, 3DS log, AVS/CVV, delivery, prior transactions (CE3), communications, IP/device data, policy acceptance. Pre-arbitration: Visa $500 fee, Mastercard varies.`,
   },
+  {
+    agent_id: null,
+    source_type: "regulation",
+    source_name: "US Lending Laws — TILA, ECOA, RESPA",
+    content: `Truth in Lending Act (TILA/Reg Z): Lenders must disclose APR, finance charges, total payments before consummation. HOEPA high-cost mortgage threshold: APR 6.5%+ above APOR for first liens. 3-day right of rescission for refinances/HELOCs on primary residence. Civil liability up to $5,000 individual. Equal Credit Opportunity Act (ECOA/Reg B): Prohibited bases — race, color, religion, national origin, sex, marital status, age, public assistance. Adverse action notice within 30 days with specific reasons. Record keeping 25 months for applications. Punitive damages up to $10,000 individual. RESPA/Reg X: Loan Estimate within 3 business days of application. Closing Disclosure 3 business days before closing. Kickback/referral fee prohibition. QM/ATR Rule: Qualified Mortgage must verify ability to repay — DTI generally ≤43%. Points and fees ≤3% of loan amount. No negative amortization, interest-only, or balloon features.`,
+  },
+  {
+    agent_id: null,
+    source_type: "regulation",
+    source_name: "India RBI Lending & NBFC Norms",
+    content: `RBI Fair Practices Code for Lending: Key Fact Statement (KFS) with all-inclusive APR mandatory before sanctioning. No prepayment penalty on floating rate loans. Digital Lending Guidelines 2022: All disbursements/repayments through borrower bank account only. 3-day look-up period for digital loans. NBFC Scale-Based Regulation: Upper Layer NBFCs must maintain CET1 ratio of 9%. All NBFCs must have Board-approved credit policy. Income Verification: Household income verification mandatory for microfinance. EMI/NMI ratio guideline ≤50% for microfinance. RBI Master Circular on IRAC Norms: NPA = 90+ DPD. Standard provision 0.40%. Sub-standard (90d-12m) provision 15% (25% unsecured). Doubtful-1 (12-24m) 25% + 100% unsecured. Doubtful-2 (24-36m) 40% + 100% unsecured. Doubtful-3 (36m+) 100%. Loss asset 100%. Recovery channels: SARFAESI Act (secured), DRT, Lok Adalat (≤₹20 lakh), IBC.`,
+  },
+  {
+    agent_id: null,
+    source_type: "regulation",
+    source_name: "US Debt Collection — FDCPA and Regulation F",
+    content: `Fair Debt Collection Practices Act (FDCPA) + Regulation F (12 CFR §1006). Call Limits: Maximum 7 calls per 7 days per debt per phone number. Maximum 1 call per day to same number. State variations: WA 3/7d, MA 2/7d, NY 4/7d, CA 5/7d. Time Window: 8:00 AM - 9:00 PM in consumer's local time zone. Validation Notice: Within 5 days of first contact — amount, creditor name, itemization of principal/interest/fees, 30-day dispute window. Cease Communication: Must honor written cease requests immediately. SMS: Prior express written consent required (TCPA). Must include "Reply STOP to opt out." Email: Max 1/day, must include opt-out (honored within 10 business days). Voicemail Safe Harbor: Only collector name, callback request, phone number. No mention of "debt." Time-Barred Debts: Cannot sue or threaten to sue on expired statute of limitations debts. Record Retention: 3 years after last collection activity. Penalties: FDCPA up to $1,000/violation + attorney fees. TCPA $500-$1,500/call or text.`,
+  },
+  {
+    agent_id: null,
+    source_type: "knowledge",
+    source_name: "Loan Underwriting Methodology",
+    content: `Credit Underwriting Five Pillars. 1) Credit Profile: FICO (US) ranges — Excellent 800+, Good 740-799, Fair 670-739, Poor <670. CIBIL (India) — Excellent 800+, Good 750-799, Fair 650-749, Poor <650. Key factors: payment history (35%), amounts owed (30%), credit age (15%), mix (10%), inquiries (10%). 2) Income & Employment: Cross-verify declared income against bank statements and tax returns. Variance >15% = flag. Self-employed require 2+ years ITR. Minimum 1 year salaried employment (2 years self-employed). 3) Debt Capacity: Front-end DTI (housing/income) limits — Conventional 28%, FHA 31%, VA 41%. Back-end DTI (all debt/income) limits — Conventional 36%, FHA 43%, QM 43%. Net disposable should be ≥20% of income. 4) Collateral: LTV limits — Conventional 80% (PMI above), FHA 96.5%, VA 100%. India RBI: 80% for housing. 5) Affordability: EMI formula M=P×r×(1+r)^n/((1+r)^n-1). Interest-to-principal ratio indicates cost burden. Income multiple >5x = elevated risk.`,
+  },
+  {
+    agent_id: null,
+    source_type: "knowledge",
+    source_name: "Debt Collection Strategy & Recovery Optimization",
+    content: `Recovery Rate Benchmarks by DPD. 1-30 DPD: 85% recovery rate, soft reminders, SMS/email/push. 31-60 DPD: 60% recovery, active engagement, payment plan offers. 61-90 DPD: 35% recovery, escalated contact, settlement discussion. 90-180 DPD: 18% recovery, legal notices, credit bureau reporting. 180+ DPD: 8% recovery, litigation/agency referral/debt sale. Propensity-to-Pay Factors: Promise history (strongest predictor — kept/broken ratio), partial payment signals (positive), contact responsiveness, credit score trajectory, employment status, income-to-balance ratio, hardship indicators. Settlement NPV: Settlement now vs extended collection NPV comparison. Discount rate 1%/month for time value. Cost-to-collect 5-15% of recovered amount. Settlement advantage = settlement amount - expected recovery without settlement. Payment Plan Design: Accelerated (3-6 months, minimal waiver), Standard (12 months), Extended/Hardship (18-24 months, 5-15% waiver). Affordable EMI = 30% of income minus existing obligations. Contact Compliance: Always check compliance BEFORE outreach. Violations cost more than the recovery.`,
+  },
 ];
 
 export default rag;

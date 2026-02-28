@@ -8,6 +8,8 @@ export const documentAnalysisTool: ToolDefinition = {
   name: "document_analysis",
   description:
     "Analyze uploaded documents that have already been extracted. Searches the document context for specific information, extracts key fields, or summarizes sections. Use this when you need to find specific data within attached documents.",
+  category: "document",
+  stepType: "data_fetch",
   parameters: {
     action: {
       type: "string",

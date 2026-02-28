@@ -107,6 +107,8 @@ export const calculateTool: ToolDefinition = {
   name: "calculate",
   description:
     "Perform arithmetic calculations, percentage computations, date differences, and weighted scoring. Use this for precise numerical analysis instead of mental math.",
+  category: "calculation",
+  stepType: "tool_call",
   parameters: {
     expression: {
       type: "string",
