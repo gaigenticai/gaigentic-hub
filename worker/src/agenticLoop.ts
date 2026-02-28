@@ -25,7 +25,7 @@ import type {
 } from "./tools/types";
 import { getTool } from "./tools/registry";
 
-const MAX_ITERATIONS = 5;
+const MAX_ITERATIONS = 8;
 const TOOL_CALL_OPEN = "|||TOOL_CALL|||";
 const TOOL_CALL_CLOSE = "|||END_TOOL_CALL|||";
 
