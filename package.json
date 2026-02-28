@@ -14,12 +14,15 @@
     "db:migrate:local": "cd worker && npx wrangler d1 execute gaigentic-hub-db --file=./schema.sql --local"
   },
   "dependencies": {
+    "@tailwindcss/typography": "^0.5.19",
     "lucide-react": "^0.468.0",
     "pdfjs-dist": "^5.4.624",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^6.28.0",
     "recharts": "^2.15.0",
+    "remark-gfm": "^4.0.1",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
