@@ -153,6 +153,12 @@ export function useAgentExecution() {
               } catch {
                 setError("Execution failed");
               }
+              // Mark any still-running steps as error
+              setSteps((prev) =>
+                prev.map((s) =>
+                  s.status === "running" ? { ...s, status: "error" as const, error_message: "Request failed" } : s,
+                ),
+              );
             }
           }
         }
@@ -160,6 +166,12 @@ export function useAgentExecution() {
         if ((err as Error).name !== "AbortError") {
           setError((err as Error).message);
         }
+        // Mark any still-running steps as error on stream failure
+        setSteps((prev) =>
+          prev.map((s) =>
+            s.status === "running" ? { ...s, status: "error" as const, error_message: "Connection lost" } : s,
+          ),
+        );
       }
 
       setIsStreaming(false);

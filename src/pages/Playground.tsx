@@ -39,10 +39,13 @@ function StepDetail({ step }: { step: AgentStep }) {
   const ToolIcon = TOOL_ICONS[step.tool] || config.icon;
   const isRunning = step.status === "running";
   const isDone = step.status === "completed";
+  const isError = step.status === "error";
 
   return (
     <div className={`rounded-lg border transition-all duration-200 ${
-      isRunning ? "border-cta/30 bg-cta/[0.03] shadow-sm" : `${config.border}/60 bg-white`
+      isRunning ? "border-cta/30 bg-cta/[0.03] shadow-sm"
+        : isError ? "border-signal-red/30 bg-signal-red/[0.03]"
+        : `${config.border}/60 bg-white`
     }`}>
       <button
         onClick={() => !isRunning && setExpanded(!expanded)}
@@ -51,7 +54,9 @@ function StepDetail({ step }: { step: AgentStep }) {
       >
         {/* Step type icon */}
         <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md mt-0.5 ${
-          isRunning ? "bg-cta/10 text-cta" : `${config.bg} ${config.color}`
+          isRunning ? "bg-cta/10 text-cta"
+            : isError ? "bg-signal-red/10 text-signal-red"
+            : `${config.bg} ${config.color}`
         }`}>
           {isRunning ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -78,9 +83,9 @@ function StepDetail({ step }: { step: AgentStep }) {
             )}
           </div>
           <p className={`text-xs mt-0.5 leading-relaxed ${
-            isRunning ? "text-ink-700" : "text-ink-500"
+            isRunning ? "text-ink-700" : isError ? "text-signal-red" : "text-ink-500"
           }`}>
-            {step.summary || step.label}
+            {isError ? (step.error_message || "Step failed") : (step.summary || step.label)}
           </p>
         </div>
 
