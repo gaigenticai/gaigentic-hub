@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { Play, Square, RotateCcw, AlertCircle, Info, Copy, Download, Check, Brain, FileSearch, Database, Shield, ChevronDown, ChevronUp, Pencil } from "lucide-react";
-import type { Agent, LLMProvider } from "../types";
+import { Play, Square, RotateCcw, AlertCircle, Info, Copy, Download, Check, Brain, FileSearch, Database, Shield, ChevronDown, ChevronUp, Pencil, Search, Calculator, ShieldCheck, FileText, Scale, Loader2, AlertTriangle } from "lucide-react";
+import type { Agent, LLMProvider, AgentStep } from "../types";
 import { getAgents, getAgent } from "../services/api";
 import { useAgentExecution } from "../hooks/useAgentExecution";
 import { useDocumentUpload } from "../hooks/useDocumentUpload";
@@ -12,34 +12,36 @@ import FileUpload from "../components/FileUpload";
 import FeedbackWidget from "../components/FeedbackWidget";
 import ContactCTA from "../components/ContactCTA";
 
-/* ── Thinking state while agent processes ── */
-function AgentThinking({ agent, hasDocuments }: { agent: Agent | null; hasDocuments: boolean }) {
+/* ── Tool icon mapping ── */
+const TOOL_ICONS: Record<string, typeof Search> = {
+  rag_query: Search,
+  calculate: Calculator,
+  data_validation: ShieldCheck,
+  document_analysis: FileText,
+  regulatory_lookup: Scale,
+};
+
+/* ── Real agent steps (agentic workflow) ── */
+function AgentSteps({ steps, agent, isStreaming }: { steps: AgentStep[]; agent: Agent | null; isStreaming: boolean }) {
   const [elapsed, setElapsed] = useState(0);
-  const [activeStep, setActiveStep] = useState(0);
   const startRef = useRef(Date.now());
 
-  const steps = [
-    { icon: FileSearch, label: "Reading input & documents", delay: 0 },
-    { icon: Database, label: "Querying knowledge base", delay: 2 },
-    { icon: Brain, label: "Analyzing & reasoning", delay: 5 },
-    { icon: Shield, label: "Applying compliance checks", delay: 9 },
-  ];
-
   useEffect(() => {
+    if (!isStreaming) return;
     const timer = setInterval(() => {
-      const secs = Math.floor((Date.now() - startRef.current) / 1000);
-      setElapsed(secs);
-      const next = steps.findIndex((s) => s.delay > secs);
-      setActiveStep(next === -1 ? steps.length - 1 : Math.max(0, next - 1));
+      setElapsed(Math.floor((Date.now() - startRef.current) / 1000));
     }, 500);
     return () => clearInterval(timer);
-  }, []);
+  }, [isStreaming]);
+
+  const allDone = steps.length > 0 && steps.every((s) => s.status !== "running");
+  const hasRunningStep = steps.some((s) => s.status === "running");
 
   return (
-    <div className="flex flex-col items-center justify-center py-10">
+    <div className="flex flex-col items-center justify-center py-8">
       {/* Agent identity */}
       {agent && (
-        <div className="mb-6 flex items-center gap-3">
+        <div className="mb-5 flex items-center gap-3">
           <div
             className="flex h-10 w-10 items-center justify-center rounded-lg text-lg"
             style={{ backgroundColor: agent.color + "18", color: agent.color }}
@@ -48,45 +50,96 @@ function AgentThinking({ agent, hasDocuments }: { agent: Agent | null; hasDocume
           </div>
           <div>
             <p className="text-sm font-semibold text-ink-900">{agent.name}</p>
-            <p className="text-xs text-ink-400">{hasDocuments ? "Processing documents..." : "Working..."}</p>
+            <p className="text-xs text-ink-400">
+              {allDone ? "Generating response..." : "Analyzing with tools..."}
+            </p>
           </div>
         </div>
       )}
 
-      {/* Step progress */}
-      <div className="w-full max-w-xs space-y-3">
+      {/* Steps */}
+      <div className="w-full max-w-sm space-y-2.5">
         {steps.map((step, i) => {
-          const Icon = step.icon;
-          const isActive = i === activeStep;
-          const isDone = i < activeStep;
-          const isPending = i > activeStep;
+          const Icon = TOOL_ICONS[step.tool] || Brain;
+          const isRunning = step.status === "running";
+          const isDone = step.status === "completed";
+          const isError = step.status === "error";
+
           return (
-            <div key={i} className={`flex items-center gap-3 transition-opacity duration-300 ${isPending ? "opacity-30" : "opacity-100"}`}>
-              <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors duration-300 ${
-                isActive ? "bg-cta/10 text-cta" : isDone ? "bg-ink-50 text-ink-400" : "bg-ink-50 text-ink-200"
+            <div
+              key={`${step.step}-${step.tool}-${i}`}
+              className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 transition-all duration-300 ${
+                isRunning
+                  ? "border-cta/20 bg-cta/5"
+                  : isDone
+                    ? "border-signal-green/20 bg-signal-green/5"
+                    : "border-signal-red/20 bg-signal-red/5"
+              }`}
+            >
+              <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md mt-0.5 ${
+                isRunning
+                  ? "bg-cta/10 text-cta"
+                  : isDone
+                    ? "bg-signal-green/10 text-signal-green"
+                    : "bg-signal-red/10 text-signal-red"
               }`}>
-                {isActive ? (
-                  <Icon className="h-3.5 w-3.5 animate-pulse" />
+                {isRunning ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : isDone ? (
                   <Check className="h-3.5 w-3.5" />
                 ) : (
-                  <Icon className="h-3.5 w-3.5" />
+                  <AlertTriangle className="h-3.5 w-3.5" />
                 )}
               </div>
-              <span className={`text-xs transition-colors duration-300 ${
-                isActive ? "font-medium text-ink-900" : isDone ? "text-ink-400 line-through" : "text-ink-300"
-              }`}>
-                {step.label}
-              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <Icon className="h-3 w-3 shrink-0 text-ink-400" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-400">
+                    {step.tool.replace(/_/g, " ")}
+                  </span>
+                  {step.duration_ms !== undefined && (
+                    <span className="text-[10px] tabular-nums text-ink-300 ml-auto">
+                      {step.duration_ms}ms
+                    </span>
+                  )}
+                </div>
+                <p className={`text-xs mt-0.5 leading-relaxed ${
+                  isRunning ? "text-ink-700" : isDone ? "text-ink-500" : "text-signal-red"
+                }`}>
+                  {step.summary || step.label}
+                </p>
+              </div>
             </div>
           );
         })}
+
+        {/* Generating response indicator after tools complete */}
+        {allDone && isStreaming && (
+          <div className="flex items-center gap-3 rounded-lg border border-ink-100 bg-ink-50/50 px-3 py-2.5">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-cta/10 text-cta">
+              <Brain className="h-3.5 w-3.5 animate-pulse" />
+            </div>
+            <span className="text-xs text-ink-600">Generating final analysis with visual blocks...</span>
+          </div>
+        )}
+
+        {/* Simple processing indicator when no steps yet */}
+        {steps.length === 0 && isStreaming && (
+          <div className="flex items-center gap-3 rounded-lg border border-ink-100 bg-ink-50/50 px-3 py-2.5">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-cta/10 text-cta">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            </div>
+            <span className="text-xs text-ink-600">Processing...</span>
+          </div>
+        )}
       </div>
 
       {/* Timer */}
-      <p className="mt-6 font-mono text-xs tabular-nums text-ink-300">
-        {elapsed}s elapsed
-      </p>
+      {isStreaming && (
+        <p className="mt-5 font-mono text-xs tabular-nums text-ink-300">
+          {elapsed}s elapsed
+        </p>
+      )}
     </div>
   );
 }
@@ -102,7 +155,7 @@ export default function Playground() {
   const [apiKey, setApiKey] = useState("");
   const [hasExecuted, setHasExecuted] = useState(false);
 
-  const { blocks, isStreaming, error, auditLogId, execute, stop, reset, getRawText } =
+  const { blocks, steps, isStreaming, error, auditLogId, execute, stop, reset, getRawText } =
     useAgentExecution();
   const [copied, setCopied] = useState(false);
 
@@ -476,8 +529,16 @@ export default function Playground() {
               </div>
             )}
 
-            {blocks.length === 0 && isStreaming ? (
-              <AgentThinking agent={selectedAgent} hasDocuments={hasDocuments} />
+            {/* Real agentic steps */}
+            {steps.length > 0 && (
+              <div className="mb-4">
+                <AgentSteps steps={steps} agent={selectedAgent} isStreaming={blocks.length === 0 && isStreaming} />
+              </div>
+            )}
+
+            {blocks.length === 0 && isStreaming && steps.length === 0 ? (
+              /* Fallback for single-shot agents (no tools) */
+              <AgentSteps steps={[]} agent={selectedAgent} isStreaming={isStreaming} />
             ) : (
               <ResponseViewer blocks={blocks} isStreaming={isStreaming} />
             )}

@@ -7,7 +7,7 @@ INSERT OR REPLACE INTO agents (
   icon, color, version, status,
   sample_input, sample_output, system_prompt,
   guardrails, capabilities, jurisdictions, featured, sort_order,
-  playground_instructions
+  playground_instructions, tools
 ) VALUES (
   'chargeback-validity',
   'Chargeback Validity Agent',
@@ -466,5 +466,8 @@ If no action specified, infer the best action from the input data.',
 • Or upload documents — dispute letters, receipts, delivery proofs, bank statements (PDF/images)
 • You can also type a natural language dispute description directly
 • Combine approaches: upload evidence documents + add structured data in JSON
-• Supported actions: analyze_dispute, score_only, representment_brief, bulk_triage'
+• Supported actions: analyze_dispute, score_only, representment_brief, bulk_triage',
+
+  -- tools (agentic workflow)
+  '["rag_query","calculate","data_validation","regulatory_lookup","document_analysis"]'
 );

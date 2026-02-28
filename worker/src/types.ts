@@ -58,6 +58,7 @@ export interface AgentRow {
   capabilities: string | null;
   jurisdictions: string | null;
   playground_instructions: string | null;
+  tools: string | null;
   featured: number;
   sort_order: number;
   created_at: string;
@@ -143,6 +144,7 @@ export interface AuditLogRow {
   llm_model: string;
   temperature: number | null;
   max_tokens: number | null;
+  tool_calls: string | null;
   created_at: string;
 }
 

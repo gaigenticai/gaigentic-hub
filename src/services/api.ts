@@ -287,6 +287,24 @@ export async function uploadDocument(
 }
 
 // ==========================================
+// API Key Validation
+// ==========================================
+
+export async function testApiKey(
+  provider: LLMProvider,
+  apiKey: string,
+): Promise<{ valid: boolean; provider: string; model: string; error?: string }> {
+  return request<{ valid: boolean; provider: string; model: string; error?: string }>(
+    "/playground/test-key",
+    {
+      method: "POST",
+      body: JSON.stringify({ provider, api_key: apiKey }),
+    },
+    0, // no retries for key testing
+  );
+}
+
+// ==========================================
 // Playground API (SSE Streaming)
 // ==========================================
 

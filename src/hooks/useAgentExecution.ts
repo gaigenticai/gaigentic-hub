@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import type { VisualBlock, LLMProvider } from "../types";
+import type { VisualBlock, LLMProvider, AgentStep } from "../types";
 import { executeAgent } from "../services/api";
 
 // Visual block parser (mirrors server's visualEngine.ts)
@@ -76,6 +76,7 @@ function parseSSEEvents(text: string): Array<{ event: string; data: string }> {
 
 export function useAgentExecution() {
   const [blocks, setBlocks] = useState<VisualBlock[]>([]);
+  const [steps, setSteps] = useState<AgentStep[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [auditLogId, setAuditLogId] = useState<string | null>(null);
@@ -100,6 +101,7 @@ export function useAgentExecution() {
       setIsStreaming(true);
       setError(null);
       setBlocks([]);
+      setSteps([]);
       setAuditLogId(null);
       rawTextRef.current = "";
 
@@ -125,6 +127,24 @@ export function useAgentExecution() {
                 setBlocks(parseVisualBlocks(rawTextRef.current));
               } catch {
                 // Skip malformed event
+              }
+            } else if (evt.event === "step") {
+              try {
+                const step = JSON.parse(evt.data) as AgentStep;
+                setSteps((prev) => {
+                  // Update existing step or append new one
+                  const existing = prev.findIndex(
+                    (s) => s.step === step.step && s.tool === step.tool,
+                  );
+                  if (existing >= 0) {
+                    const updated = [...prev];
+                    updated[existing] = step;
+                    return updated;
+                  }
+                  return [...prev, step];
+                });
+              } catch {
+                // Skip malformed step event
               }
             } else if (evt.event === "error") {
               try {
@@ -157,6 +177,7 @@ export function useAgentExecution() {
   const reset = useCallback(() => {
     abortRef.current?.();
     setBlocks([]);
+    setSteps([]);
     setError(null);
     setIsStreaming(false);
     rawTextRef.current = "";
@@ -164,5 +185,5 @@ export function useAgentExecution() {
 
   const getRawText = useCallback(() => rawTextRef.current, []);
 
-  return { blocks, isStreaming, error, auditLogId, execute, stop, reset, getRawText };
+  return { blocks, steps, isStreaming, error, auditLogId, execute, stop, reset, getRawText };
 }

@@ -6,6 +6,9 @@ import { createProvider, getDefaultProvider, getDefaultModel, getFallbackProvide
 import { queryKnowledge } from "../rag";
 import { decrypt } from "../encryption";
 import { VISUAL_OUTPUT_INSTRUCTIONS } from "../visualEngine";
+import { getAgentTools } from "../tools/registry";
+import { buildToolInstructions } from "../tools/promptBuilder";
+import { runAgenticLoop } from "../agenticLoop";
 import {
   SANDBOX_MAX_CALLS,
   TRIAL_MAX_CALLS_PER_AGENT,
@@ -275,13 +278,18 @@ playground.post("/execute", async (c) => {
     }
   }
 
+  // Resolve agent tools
+  const agentTools = getAgentTools(agent.tools);
+  const toolInstructions = buildToolInstructions(agentTools);
+
   // Build messages
   const systemPrompt =
     agent.system_prompt +
     ragContext +
     documentContext +
     "\n\n" +
-    VISUAL_OUTPUT_INSTRUCTIONS;
+    VISUAL_OUTPUT_INSTRUCTIONS +
+    toolInstructions;
 
   const hasEmptyInput = Object.keys(body.input).length === 0;
   const userPrompt = body.prompt?.trim() || "";
@@ -320,34 +328,54 @@ playground.post("/execute", async (c) => {
   // Pre-generate audit log ID so we can return it in headers
   const auditLogId = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
 
-  // Stream response (with Workers AI fallback)
+  // Stream response — agentic loop or single-shot
   let usedFallback = false;
   let actualProvider = providerName;
   let actualModel = model;
 
   let stream: ReadableStream;
-  try {
-    stream = await provider.stream({
-      model,
+
+  if (agentTools.length > 0) {
+    // Agentic loop: multi-step tool-calling workflow
+    stream = runAgenticLoop({
       messages,
-      max_tokens: maxTokens,
+      tools: agentTools,
+      toolContext: {
+        agentId: agent.id,
+        agentSlug: agent.slug,
+        documentContext: documentContext || undefined,
+      },
+      env: c.env,
+      provider,
+      model,
+      maxTokens,
       temperature,
     });
-  } catch (primaryErr) {
-    // Primary provider failed — try Workers AI fallback
+  } else {
+    // Single-shot: existing streaming behavior
     try {
-      const fallback = getFallbackProvider(c.env);
-      stream = await fallback.stream({
-        model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+      stream = await provider.stream({
+        model,
         messages,
         max_tokens: maxTokens,
         temperature,
       });
-      usedFallback = true;
-      actualProvider = "workers-ai";
-      actualModel = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
-    } catch (fallbackErr) {
-      throw primaryErr; // Both failed, throw original error
+    } catch (primaryErr) {
+      // Primary provider failed — try Workers AI fallback
+      try {
+        const fallback = getFallbackProvider(c.env);
+        stream = await fallback.stream({
+          model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+          messages,
+          max_tokens: maxTokens,
+          temperature,
+        });
+        usedFallback = true;
+        actualProvider = "workers-ai";
+        actualModel = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+      } catch (fallbackErr) {
+        throw primaryErr; // Both failed, throw original error
+      }
     }
   }
 
@@ -372,9 +400,16 @@ playground.post("/execute", async (c) => {
         const rawSSE = await getText();
         const outputText = extractTextFromSSE(rawSSE);
 
+        // Extract tool calls from SSE stream (event: tools)
+        let toolCallsJson: string | null = null;
+        const toolsMatch = rawSSE.match(/event: tools\ndata: (.+)\n/);
+        if (toolsMatch) {
+          toolCallsJson = toolsMatch[1];
+        }
+
         await c.env.DB.prepare(
-          `INSERT INTO audit_logs (id, usage_log_id, user_id, agent_id, agent_slug, input_text, output_text, rag_sources, system_prompt_hash, llm_provider, llm_model, temperature, max_tokens)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO audit_logs (id, usage_log_id, user_id, agent_id, agent_slug, input_text, output_text, rag_sources, system_prompt_hash, llm_provider, llm_model, temperature, max_tokens, tool_calls)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
           .bind(
             auditLogId,
@@ -390,6 +425,7 @@ playground.post("/execute", async (c) => {
             actualModel,
             temperature,
             maxTokens,
+            toolCallsJson,
           )
           .run();
       })(),
@@ -435,6 +471,52 @@ playground.post("/execute", async (c) => {
     );
 
     return c.json({ error: errorMsg }, 500);
+  }
+});
+
+// POST /playground/test-key — Validate an LLM API key
+playground.post("/test-key", async (c) => {
+  const body = await c.req.json<{
+    provider: string;
+    api_key: string;
+  }>();
+
+  if (!body.provider || !body.api_key) {
+    return c.json({ error: "provider and api_key are required" }, 400);
+  }
+
+  const validProviders = ["openai", "anthropic", "zai"];
+  if (!validProviders.includes(body.provider)) {
+    return c.json({ error: "Invalid provider" }, 400);
+  }
+
+  const model = getDefaultModel(body.provider);
+  const provider = createProvider(body.provider, body.api_key, c.env);
+
+  try {
+    const result = await provider.chat({
+      model,
+      messages: [
+        { role: "user", content: "Say 'ok' and nothing else." },
+      ],
+      max_tokens: 5,
+      temperature: 0,
+    });
+
+    return c.json({
+      valid: true,
+      provider: body.provider,
+      model,
+      response: result.content.slice(0, 50),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return c.json({
+      valid: false,
+      provider: body.provider,
+      model,
+      error: msg,
+    });
   }
 });
 

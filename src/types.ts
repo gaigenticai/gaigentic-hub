@@ -120,6 +120,16 @@ export interface VisualBlock {
   content: string | ChartConfig | TableConfig | KPIConfig;
 }
 
+export interface AgentStep {
+  tool: string;
+  label: string;
+  status: "running" | "completed" | "error";
+  step: number;
+  maxSteps: number;
+  summary?: string;
+  duration_ms?: number;
+}
+
 export interface ChartConfig {
   type: "bar" | "line" | "pie" | "area" | "radar";
   title: string;
