@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Env, UserRow, AgentRow, LlmConfigRow } from "../types";
 import { getSessionUser } from "../session";
 import { checkRateLimit } from "../rateLimit";
-import { createProvider, getDefaultProvider, getDefaultModel, getFallbackProvider } from "../llm";
+import { createProvider, getDefaultProvider, getDefaultModel } from "../llm";
 import { queryKnowledge } from "../rag";
 import { decrypt } from "../encryption";
 import { VISUAL_OUTPUT_INSTRUCTIONS } from "../visualEngine";
@@ -329,7 +329,6 @@ playground.post("/execute", async (c) => {
   const auditLogId = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
 
   // Stream response — agentic loop or single-shot
-  let usedFallback = false;
   let actualProvider = providerName;
   let actualModel = model;
 
@@ -353,30 +352,12 @@ playground.post("/execute", async (c) => {
     });
   } else {
     // Single-shot: existing streaming behavior
-    try {
-      stream = await provider.stream({
-        model,
-        messages,
-        max_tokens: maxTokens,
-        temperature,
-      });
-    } catch (primaryErr) {
-      // Primary provider failed — try Workers AI fallback
-      try {
-        const fallback = getFallbackProvider(c.env);
-        stream = await fallback.stream({
-          model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-          messages,
-          max_tokens: maxTokens,
-          temperature,
-        });
-        usedFallback = true;
-        actualProvider = "workers-ai";
-        actualModel = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
-      } catch (fallbackErr) {
-        throw primaryErr; // Both failed, throw original error
-      }
-    }
+    stream = await provider.stream({
+      model,
+      messages,
+      max_tokens: maxTokens,
+      temperature,
+    });
   }
 
   try {
@@ -470,9 +451,6 @@ playground.post("/execute", async (c) => {
 
     if (usingSharedKey) {
       headers["X-Using-Shared-Key"] = "true";
-    }
-    if (usedFallback) {
-      headers["X-Fallback-Provider"] = "workers-ai";
     }
 
     return new Response(readable, { headers });
