@@ -8,7 +8,7 @@ import agentRoutes from "./routes/agents";
 import playgroundRoutes from "./routes/playground";
 import apikeyRoutes from "./routes/apikeys";
 import adminRoutes from "./routes/admin";
-import ragRoutes from "./routes/rag";
+import ragRoutes, { seedKnowledge } from "./routes/rag";
 import usageRoutes from "./routes/usage";
 import healthRoutes from "./routes/health";
 import feedbackRoutes from "./routes/feedback";
@@ -64,6 +64,12 @@ app.route("/playground", playgroundRoutes);
 app.route("/apikeys", apikeyRoutes);
 app.route("/admin", adminRoutes);
 app.route("/rag", ragRoutes);
+// Knowledge base seeding (API key auth, no admin token needed)
+app.post("/seed-knowledge", async (c) => {
+  const result = await seedKnowledge({ env: c.env, req: { header: (n: string) => c.req.header(n) } });
+  if ("error" in result) return c.json({ error: result.error }, result.status as 401);
+  return c.json(result);
+});
 app.route("/usage", usageRoutes);
 app.route("/feedback", feedbackRoutes);
 app.route("/health", healthRoutes);

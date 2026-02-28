@@ -89,4 +89,79 @@ rag.delete("/documents/:id", async (c) => {
   return c.json({ success: true });
 });
 
+// POST /rag/seed — Seed knowledge base (API key auth, bypasses admin middleware)
+// This is registered separately in index.ts with API key auth
+export async function seedKnowledge(c: { env: Env; req: { header: (name: string) => string | undefined } }) {
+  const apiKey = c.req.header("X-Seed-Key");
+  // Use admin email as simple auth for one-time seed operation
+  if (!apiKey || apiKey !== c.env.ADMIN_EMAIL) {
+    return { error: "Unauthorized", status: 401 };
+  }
+
+  const results: Array<{ name: string; chunks: number }> = [];
+
+  for (const doc of SEED_DOCUMENTS) {
+    const result = await ingestDocument(c.env, {
+      agentId: doc.agent_id || null,
+      sourceType: doc.source_type,
+      sourceName: doc.source_name,
+      content: doc.content,
+    });
+    results.push({ name: doc.source_name, chunks: result.chunks_inserted });
+  }
+
+  return { success: true, results, total_chunks: results.reduce((s, r) => s + r.chunks, 0) };
+}
+
+const SEED_DOCUMENTS = [
+  {
+    agent_id: null, // shared
+    source_type: "regulation",
+    source_name: "US BSA/AML Framework",
+    content: `Bank Secrecy Act (BSA) — Anti-Money Laundering Framework. The BSA, enacted in 1970 and amended by the USA PATRIOT Act (2001), is the primary US anti-money laundering law. Currency Transaction Reports (CTR): Filing threshold $10,000 in cash transactions per business day. Aggregation rule: Multiple cash transactions by same person totaling over $10,000 in one business day must be aggregated. Filing deadline: 15 calendar days. Penalties: Civil up to $25,000; criminal up to $250,000 and/or 5 years. Suspicious Activity Reports (SAR): Threshold $5,000 for banks, $2,000 for MSBs. No threshold for terrorism financing. Filing deadline: 30 days after detection; 60 days if no suspect. Confidentiality: Federal crime to disclose SAR filing. Continuing SAR every 90 days. Structuring (31 USC §5324): Breaking transactions to avoid CTR thresholds is a federal crime regardless of fund source. Penalties up to $250,000 and/or 5 years. Indicators: deposits just below $10,000, multiple branches, customer awareness of CTR. FinCEN 314(b): Voluntary info sharing between institutions with Safe Harbor protection.`,
+  },
+  {
+    agent_id: null,
+    source_type: "regulation",
+    source_name: "US Consumer Protection — Reg E and Reg Z",
+    content: `Regulation E (EFTA) — Electronic Fund Transfers. Consumer liability: within 2 business days $50 max, within 60 days $500 max, after 60 days full liability. Bank investigation: 10 business days (20 for new accounts). Provisional credit if investigation exceeds 10 days. Resolution: 45 days (90 for new accounts, international, POS). Regulation Z (TILA) — Credit Cards. Consumer liability: $50 max for unauthorized charges. Most networks offer zero liability. Billing error deadline: 60 days from statement. Issuer resolution: 2 billing cycles max 90 days. Must provide provisional credit during investigation. Cannot report as delinquent during dispute. CFPB oversees enforcement of both regulations.`,
+  },
+  {
+    agent_id: null,
+    source_type: "regulation",
+    source_name: "EU AML Directives and PSD2/SCA",
+    content: `EU Anti-Money Laundering Directives. 4th AMLD: CDD threshold €15,000 for occasional transactions. Beneficial ownership registers mandatory. 5th AMLD: Extends to crypto exchanges, public beneficial ownership, prepaid card threshold €150. 6th AMLD: 22 harmonized predicate offenses, criminal liability for companies, minimum 4 years imprisonment. PSD2 Strong Customer Authentication: Two of three factors required (knowledge, possession, inherence). Exemptions: low value (<€30, cumulative €100), low risk TRA, recurring fixed-amount, trusted beneficiary, corporate. Liability shift: If merchant performed SCA, issuer bears fraud liability. Without SCA, merchant bears liability. GDPR: AML processing lawful under legal obligation. Retention 5 years after relationship ends. Data minimization applies.`,
+  },
+  {
+    agent_id: null,
+    source_type: "regulation",
+    source_name: "India PMLA and RBI Directions",
+    content: `India Prevention of Money Laundering Act (PMLA) 2002. CTR threshold: ₹10 lakh cash transactions. STR: No monetary threshold, any suspicious transaction. Cross-border wire threshold: ₹5 lakh. Filing to FIU-IND: CTR monthly, STR within 15 days. Record keeping: 10 years. Penalties: 3-7 years imprisonment, property confiscation. RBI KYC: Aadhaar/PAN verification, risk categories Low/Medium/High, periodic review 2-10 years. RBI Limiting Liability: Zero liability if reported within 3 working days. Limited liability ₹5,000-₹25,000 for 4-7 days. Full liability after 7 days. Bank must resolve within 90 days, provisional credit within T+10. FEMA: LRS limit $250,000/year, all cross-border transactions reported to RBI.`,
+  },
+  {
+    agent_id: null,
+    source_type: "regulation",
+    source_name: "FATF Standards and Country Risk Lists",
+    content: `Financial Action Task Force (FATF) — International AML/CFT Standards. 40 Recommendations form global framework. Grey List (Increased Monitoring, 2024): Bulgaria, Burkina Faso, Cameroon, Croatia, Congo, Haiti, Kenya, Mali, Monaco, Mozambique, Namibia, Nigeria, South Africa, South Sudan, Syria, Tanzania, Venezuela, Vietnam, Yemen. Implications: Enhanced Due Diligence required, additional scrutiny for correspondent banking. Black List (Call for Action): Iran, Myanmar, North Korea. Implications: Counter-measures required, may prohibit correspondent accounts, automatic escalation. Risk-based approach: Higher risk = EDD + senior management approval. High-risk indicators: shell companies, cash-intensive businesses, trade-based laundering, rapid fund movement, offshore centers, PEPs.`,
+  },
+  {
+    agent_id: null,
+    source_type: "regulation",
+    source_name: "Card Network Dispute Rules — Visa and Mastercard",
+    content: `Visa Dispute Rules. Categories: Fraud (10.x), Authorization (11.x), Processing Errors (12.x), Consumer Disputes (13.x). Key codes: 10.4 Card-Absent Fraud, 13.1 Not Received, 13.3 Not As Described. Timeframes: 120 days filing, 30 days representment, 30 days pre-arbitration. Compelling Evidence 3 (CE3): 2+ prior undisputed transactions from same device/IP within 120 days shifts liability to issuer. Rapid Dispute Resolution via Verifi. Mastercard Rules. Key codes: 4837 No Authorization, 4853 Not Delivered, 4855 Not As Described. Timeframes: 120 days filing, 45 days representment. Ethoca real-time fraud alerts prevent chargebacks. Amex: 20-day inquiry period, 120-day filing, full recourse model.`,
+  },
+  {
+    agent_id: null,
+    source_type: "knowledge",
+    source_name: "Transaction Monitoring Typologies",
+    content: `Money Laundering Stages: 1) Placement — cash deposits below thresholds, monetary instruments, commingling. 2) Layering — wire transfers, currency conversion, shell companies, trade-based laundering. 3) Integration — real estate, luxury goods, business investments, loan-back schemes. Structuring Patterns: below-threshold deposits ($9,000-$9,999), split deposits across branches, third-party smurfs, funnel accounts. Velocity Red Flags: >5 txns/24h, >20 txns/7d, sudden activity after dormancy, 3+ txns within 1 hour, increased average size. Amount Red Flags: near CTR threshold, round figures >$5,000, >2σ above average, micro-deposits then large withdrawal. Geographic Red Flags: IP mismatch, FATF grey/blacklist countries, high-risk corridors, free trade zones, impossible travel. Temporal Red Flags: 1-5 AM transactions, weekend business activity, pre-reporting period clustering, automated cadence.`,
+  },
+  {
+    agent_id: null,
+    source_type: "knowledge",
+    source_name: "Chargeback Analysis Strategy",
+    content: `Friendly Fraud vs True Fraud. Friendly fraud: cardholder made purchase, claims otherwise. Indicators: matching address, device, prior history. Defense: CE3, delivery proof, usage logs. True fraud: genuinely unauthorized. Indicators: unusual location, new device, address mismatch. Defense: 3DS, device intelligence. Authentication Evidence: 3DS 2.x ECI 05 = fully authenticated, strongest defense, liability shifts to issuer. 3DS 2.x ECI 06 = attempted. No 3DS = merchant bears liability. AVS full match = strong legitimate indicator. CVV match = card access evidence. Delivery: signed confirmation strongest, tracking to billing address strong, no tracking weak. Representment: EV = P(win) × amount - cost - penalty. Compelling evidence: receipt, 3DS log, AVS/CVV, delivery, prior transactions (CE3), communications, IP/device data, policy acceptance. Pre-arbitration: Visa $500 fee, Mastercard varies.`,
+  },
+];
+
 export default rag;
