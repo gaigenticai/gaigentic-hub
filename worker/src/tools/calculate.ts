@@ -129,8 +129,15 @@ export const calculateTool: ToolDefinition = {
   },
   async execute(params) {
     const expression = params.expression as string;
-    const operation = params.operation as string | undefined;
     const values = params.values as Record<string, unknown> | undefined;
+
+    // Resolve operation — LLM may put it in `operation` OR in `expression`
+    const namedOps = ["date_diff", "weighted_score"];
+    const operation = namedOps.includes(params.operation as string)
+      ? (params.operation as string)
+      : namedOps.includes(expression)
+        ? expression
+        : undefined;
 
     try {
       // Named operations
