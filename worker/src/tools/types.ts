@@ -46,7 +46,10 @@ export interface ToolCallRecord {
   duration_ms: number;
 }
 
+export type StepType = "tool_call" | "data_fetch" | "llm_reasoning" | "rule_check" | "decision";
+
 export interface StepEvent {
+  step_type: StepType;
   tool: string;
   label: string;
   status: "running" | "completed" | "error";
@@ -54,4 +57,7 @@ export interface StepEvent {
   maxSteps: number;
   summary?: string;
   duration_ms?: number;
+  input_data?: Record<string, unknown>;
+  output_data?: Record<string, unknown>;
+  error_message?: string;
 }

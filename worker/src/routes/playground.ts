@@ -400,11 +400,39 @@ playground.post("/execute", async (c) => {
         const rawSSE = await getText();
         const outputText = extractTextFromSSE(rawSSE);
 
-        // Extract tool calls from SSE stream (event: tools)
+        // Extract tool calls and steps from SSE stream
         let toolCallsJson: string | null = null;
-        const toolsMatch = rawSSE.match(/event: tools\ndata: (.+)\n/);
-        if (toolsMatch) {
-          toolCallsJson = toolsMatch[1];
+        const stepsMatch = rawSSE.match(/event: steps_complete\ndata: (.+)\n/);
+        if (stepsMatch) {
+          try {
+            const stepsData = JSON.parse(stepsMatch[1]);
+            toolCallsJson = stepsMatch[1];
+
+            // Persist each step to agent_steps table
+            if (Array.isArray(stepsData.steps)) {
+              for (const step of stepsData.steps) {
+                await c.env.DB.prepare(
+                  `INSERT INTO agent_steps (audit_log_id, step_order, step_type, tool_name, label, input_data, output_data, duration_ms, status, error_message)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                )
+                  .bind(
+                    auditLogId,
+                    step.step,
+                    step.step_type || "tool_call",
+                    step.tool || null,
+                    step.summary || step.label,
+                    step.input_data ? JSON.stringify(step.input_data) : null,
+                    step.output_data ? JSON.stringify(step.output_data) : null,
+                    step.duration_ms || null,
+                    step.status || "completed",
+                    step.error_message || null,
+                  )
+                  .run();
+              }
+            }
+          } catch {
+            // Step parsing failed — continue without step persistence
+          }
         }
 
         await c.env.DB.prepare(

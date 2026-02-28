@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { Play, Square, RotateCcw, AlertCircle, Info, Copy, Download, Check, Brain, FileSearch, Database, Shield, ChevronDown, ChevronUp, Pencil, Search, Calculator, ShieldCheck, FileText, Scale, Loader2, AlertTriangle } from "lucide-react";
-import type { Agent, LLMProvider, AgentStep } from "../types";
+import { Play, Square, RotateCcw, AlertCircle, Info, Copy, Download, Check, Brain, FileSearch, Database, Shield, ChevronDown, ChevronUp, ChevronRight, Pencil, Search, Calculator, ShieldCheck, FileText, Scale, Loader2, AlertTriangle, Clock, Zap } from "lucide-react";
+import type { Agent, LLMProvider, AgentStep, StepType } from "../types";
 import { getAgents, getAgent } from "../services/api";
 import { useAgentExecution } from "../hooks/useAgentExecution";
 import { useDocumentUpload } from "../hooks/useDocumentUpload";
@@ -12,16 +12,132 @@ import FileUpload from "../components/FileUpload";
 import FeedbackWidget from "../components/FeedbackWidget";
 import ContactCTA from "../components/ContactCTA";
 
-/* ── Tool icon mapping ── */
+/* ── Step type configuration ── */
+const STEP_TYPE_CONFIG: Record<StepType, { icon: typeof Search; color: string; bg: string; border: string; label: string }> = {
+  tool_call:     { icon: Zap,         color: "text-blue-600",    bg: "bg-blue-50",    border: "border-blue-200",    label: "Tool Call" },
+  data_fetch:    { icon: Database,    color: "text-cyan-600",    bg: "bg-cyan-50",    border: "border-cyan-200",    label: "Data Fetch" },
+  llm_reasoning: { icon: Brain,       color: "text-purple-600",  bg: "bg-purple-50",  border: "border-purple-200",  label: "AI Reasoning" },
+  rule_check:    { icon: ShieldCheck, color: "text-amber-600",   bg: "bg-amber-50",   border: "border-amber-200",   label: "Rule Check" },
+  decision:      { icon: Check,       color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", label: "Decision" },
+};
+
 const TOOL_ICONS: Record<string, typeof Search> = {
   rag_query: Search,
   calculate: Calculator,
   data_validation: ShieldCheck,
   document_analysis: FileText,
   regulatory_lookup: Scale,
+  llm: Brain,
+  final_output: Check,
 };
 
-/* ── Real agent steps (agentic workflow) ── */
+/* ── Expandable step detail ── */
+function StepDetail({ step }: { step: AgentStep }) {
+  const [expanded, setExpanded] = useState(false);
+  const config = STEP_TYPE_CONFIG[step.step_type] || STEP_TYPE_CONFIG.tool_call;
+  const TypeIcon = config.icon;
+  const ToolIcon = TOOL_ICONS[step.tool] || config.icon;
+  const isRunning = step.status === "running";
+  const isDone = step.status === "completed";
+
+  return (
+    <div className={`rounded-lg border transition-all duration-200 ${
+      isRunning ? "border-cta/30 bg-cta/[0.03] shadow-sm" : `${config.border}/60 bg-white`
+    }`}>
+      <button
+        onClick={() => !isRunning && setExpanded(!expanded)}
+        className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-ink-50/50 transition-colors rounded-lg"
+        disabled={isRunning}
+      >
+        {/* Step type icon */}
+        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md mt-0.5 ${
+          isRunning ? "bg-cta/10 text-cta" : `${config.bg} ${config.color}`
+        }`}>
+          {isRunning ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : isDone ? (
+            <TypeIcon className="h-3.5 w-3.5" />
+          ) : (
+            <AlertTriangle className="h-3.5 w-3.5 text-signal-red" />
+          )}
+        </div>
+
+        {/* Step info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] font-semibold uppercase tracking-wider ${config.color}`}>
+              {config.label}
+            </span>
+            {step.tool !== "llm" && step.tool !== "final_output" && (
+              <span className="flex items-center gap-1 text-[10px] text-ink-400">
+                <ToolIcon className="h-2.5 w-2.5" />
+                <code className="font-mono bg-ink-50 px-1 py-0.5 rounded text-[9px]">
+                  {step.tool}
+                </code>
+              </span>
+            )}
+          </div>
+          <p className={`text-xs mt-0.5 leading-relaxed ${
+            isRunning ? "text-ink-700" : "text-ink-500"
+          }`}>
+            {step.summary || step.label}
+          </p>
+        </div>
+
+        {/* Right metadata */}
+        <div className="flex items-center gap-2 shrink-0">
+          {step.duration_ms != null && (
+            <span className="flex items-center gap-0.5 text-[10px] tabular-nums text-ink-300">
+              <Clock className="h-2.5 w-2.5" />
+              {step.duration_ms < 1000 ? `${step.duration_ms}ms` : `${(step.duration_ms / 1000).toFixed(1)}s`}
+            </span>
+          )}
+          {step.error_message && <AlertTriangle className="h-3 w-3 text-signal-red" />}
+          {!isRunning && (step.input_data || step.output_data) && (
+            expanded
+              ? <ChevronDown className="h-3 w-3 text-ink-300" />
+              : <ChevronRight className="h-3 w-3 text-ink-300" />
+          )}
+        </div>
+      </button>
+
+      {/* Expanded detail — input/output data */}
+      {expanded && (
+        <div className="mx-3 mb-3 ml-12 space-y-2">
+          {step.input_data && Object.keys(step.input_data).length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1">Input</p>
+              <pre className="text-[11px] bg-ink-50 border border-ink-100 rounded-md p-2 overflow-x-auto font-mono whitespace-pre-wrap text-ink-600 max-h-32 overflow-y-auto">
+                {JSON.stringify(step.input_data, null, 2)}
+              </pre>
+            </div>
+          )}
+          {step.output_data && Object.keys(step.output_data).length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1">Output</p>
+              <pre className={`text-[11px] border rounded-md p-2 overflow-x-auto font-mono whitespace-pre-wrap max-h-40 overflow-y-auto ${
+                step.step_type === "llm_reasoning"
+                  ? "bg-purple-50/50 border-purple-100 text-purple-800"
+                  : step.step_type === "decision"
+                    ? "bg-emerald-50/50 border-emerald-100 text-emerald-800"
+                    : "bg-ink-50 border-ink-100 text-ink-600"
+              }`}>
+                {JSON.stringify(step.output_data, null, 2)}
+              </pre>
+            </div>
+          )}
+          {step.error_message && (
+            <div className="text-[11px] bg-signal-red/5 border border-signal-red/20 rounded-md p-2 text-signal-red">
+              {step.error_message}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Agent execution timeline ── */
 function AgentSteps({ steps, agent, isStreaming }: { steps: AgentStep[]; agent: Agent | null; isStreaming: boolean }) {
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef(Date.now());
@@ -34,112 +150,66 @@ function AgentSteps({ steps, agent, isStreaming }: { steps: AgentStep[]; agent: 
     return () => clearInterval(timer);
   }, [isStreaming]);
 
+  const completedSteps = steps.filter((s) => s.status !== "running");
+  const hasDecision = steps.some((s) => s.step_type === "decision");
   const allDone = steps.length > 0 && steps.every((s) => s.status !== "running");
-  const hasRunningStep = steps.some((s) => s.status === "running");
 
   return (
-    <div className="flex flex-col items-center justify-center py-8">
-      {/* Agent identity */}
-      {agent && (
-        <div className="mb-5 flex items-center gap-3">
-          <div
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-lg"
-            style={{ backgroundColor: agent.color + "18", color: agent.color }}
-          >
-            {agent.icon}
-          </div>
+    <div className="py-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          {agent && (
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-base"
+              style={{ backgroundColor: agent.color + "18", color: agent.color }}
+            >
+              {agent.icon}
+            </div>
+          )}
           <div>
-            <p className="text-sm font-semibold text-ink-900">{agent.name}</p>
-            <p className="text-xs text-ink-400">
-              {allDone ? "Generating response..." : "Analyzing with tools..."}
+            <p className="text-sm font-semibold text-ink-900">
+              {agent?.name || "Agent"}{" "}
+              <span className="font-normal text-ink-400">
+                {isStreaming ? "is working..." : `completed ${completedSteps.length} steps`}
+              </span>
             </p>
           </div>
         </div>
-      )}
+        <div className="flex items-center gap-3">
+          {isStreaming && (
+            <span className="flex items-center gap-1.5 text-xs text-cta">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cta" />
+              {elapsed}s
+            </span>
+          )}
+          {completedSteps.length > 0 && (
+            <span className="text-[10px] font-mono tabular-nums text-ink-300 bg-ink-50 px-1.5 py-0.5 rounded">
+              {completedSteps.length} step{completedSteps.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+      </div>
 
-      {/* Steps */}
-      <div className="w-full max-w-sm space-y-2.5">
-        {steps.map((step, i) => {
-          const Icon = TOOL_ICONS[step.tool] || Brain;
-          const isRunning = step.status === "running";
-          const isDone = step.status === "completed";
-          const isError = step.status === "error";
-
-          return (
-            <div
-              key={`${step.step}-${step.tool}-${i}`}
-              className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 transition-all duration-300 ${
-                isRunning
-                  ? "border-cta/20 bg-cta/5"
-                  : isDone
-                    ? "border-signal-green/20 bg-signal-green/5"
-                    : "border-signal-red/20 bg-signal-red/5"
-              }`}
-            >
-              <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md mt-0.5 ${
-                isRunning
-                  ? "bg-cta/10 text-cta"
-                  : isDone
-                    ? "bg-signal-green/10 text-signal-green"
-                    : "bg-signal-red/10 text-signal-red"
-              }`}>
-                {isRunning ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : isDone ? (
-                  <Check className="h-3.5 w-3.5" />
-                ) : (
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <Icon className="h-3 w-3 shrink-0 text-ink-400" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-400">
-                    {step.tool.replace(/_/g, " ")}
-                  </span>
-                  {step.duration_ms !== undefined && (
-                    <span className="text-[10px] tabular-nums text-ink-300 ml-auto">
-                      {step.duration_ms}ms
-                    </span>
-                  )}
-                </div>
-                <p className={`text-xs mt-0.5 leading-relaxed ${
-                  isRunning ? "text-ink-700" : isDone ? "text-ink-500" : "text-signal-red"
-                }`}>
-                  {step.summary || step.label}
-                </p>
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Generating response indicator after tools complete */}
-        {allDone && isStreaming && (
-          <div className="flex items-center gap-3 rounded-lg border border-ink-100 bg-ink-50/50 px-3 py-2.5">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-cta/10 text-cta">
-              <Brain className="h-3.5 w-3.5 animate-pulse" />
-            </div>
-            <span className="text-xs text-ink-600">Generating final analysis with visual blocks...</span>
-          </div>
-        )}
+      {/* Timeline */}
+      <div className="space-y-1.5">
+        {steps.map((step, i) => (
+          <StepDetail key={`${step.step}-${step.tool}-${i}`} step={step} />
+        ))}
 
         {/* Simple processing indicator when no steps yet */}
         {steps.length === 0 && isStreaming && (
-          <div className="flex items-center gap-3 rounded-lg border border-ink-100 bg-ink-50/50 px-3 py-2.5">
+          <div className="flex items-center gap-3 rounded-lg border border-ink-100 bg-ink-50/30 px-3 py-3">
             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-cta/10 text-cta">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             </div>
-            <span className="text-xs text-ink-600">Processing...</span>
+            <div>
+              <p className="text-xs font-medium text-ink-600">Processing input</p>
+              <p className="text-[10px] text-ink-400">Preparing analysis pipeline...</p>
+            </div>
           </div>
         )}
       </div>
-
-      {/* Timer */}
-      {isStreaming && (
-        <p className="mt-5 font-mono text-xs tabular-nums text-ink-300">
-          {elapsed}s elapsed
-        </p>
-      )}
     </div>
   );
 }

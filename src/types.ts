@@ -120,7 +120,10 @@ export interface VisualBlock {
   content: string | ChartConfig | TableConfig | KPIConfig;
 }
 
+export type StepType = "tool_call" | "data_fetch" | "llm_reasoning" | "rule_check" | "decision";
+
 export interface AgentStep {
+  step_type: StepType;
   tool: string;
   label: string;
   status: "running" | "completed" | "error";
@@ -128,6 +131,9 @@ export interface AgentStep {
   maxSteps: number;
   summary?: string;
   duration_ms?: number;
+  input_data?: Record<string, unknown>;
+  output_data?: Record<string, unknown>;
+  error_message?: string;
 }
 
 export interface ChartConfig {
