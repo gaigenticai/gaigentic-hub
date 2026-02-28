@@ -54,24 +54,46 @@ function parseVisualBlocks(rawText: string): VisualBlock[] {
   return blocks;
 }
 
-function parseSSEEvents(text: string): Array<{ event: string; data: string }> {
-  const events: Array<{ event: string; data: string }> = [];
-  const lines = text.split("\n");
-  let currentEvent = "";
-  let currentData = "";
+/**
+ * Buffered SSE parser — handles messages split across network chunks.
+ * SSE messages are terminated by \n\n. We accumulate partial data in a buffer
+ * and only parse complete messages.
+ */
+function createSSEParser() {
+  let buffer = "";
 
-  for (const line of lines) {
-    if (line.startsWith("event: ")) {
-      currentEvent = line.slice(7);
-    } else if (line.startsWith("data: ")) {
-      currentData = line.slice(6);
-      events.push({ event: currentEvent || "message", data: currentData });
-      currentEvent = "";
-      currentData = "";
+  return function parseChunk(
+    chunk: string,
+  ): Array<{ event: string; data: string }> {
+    buffer += chunk;
+    const events: Array<{ event: string; data: string }> = [];
+
+    // Split on double-newline (SSE message boundary)
+    let boundary = buffer.indexOf("\n\n");
+    while (boundary !== -1) {
+      const message = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+
+      let eventType = "";
+      let data = "";
+
+      for (const line of message.split("\n")) {
+        if (line.startsWith("event: ")) {
+          eventType = line.slice(7);
+        } else if (line.startsWith("data: ")) {
+          data = line.slice(6);
+        }
+      }
+
+      if (data) {
+        events.push({ event: eventType || "message", data });
+      }
+
+      boundary = buffer.indexOf("\n\n");
     }
-  }
 
-  return events;
+    return events;
+  };
 }
 
 export function useAgentExecution() {
@@ -82,6 +104,7 @@ export function useAgentExecution() {
   const [auditLogId, setAuditLogId] = useState<string | null>(null);
   const rawTextRef = useRef("");
   const abortRef = useRef<(() => void) | null>(null);
+  const sseParserRef = useRef(createSSEParser());
 
   const execute = useCallback(
     async (
@@ -104,6 +127,7 @@ export function useAgentExecution() {
       setSteps([]);
       setAuditLogId(null);
       rawTextRef.current = "";
+      sseParserRef.current = createSSEParser();
 
       const { stream, abort, auditLogId: auditIdPromise } = executeAgent(agentSlug, input, options);
       abortRef.current = abort;
@@ -118,7 +142,7 @@ export function useAgentExecution() {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const events = parseSSEEvents(value);
+          const events = sseParserRef.current(value);
           for (const evt of events) {
             if (evt.event === "token") {
               try {
