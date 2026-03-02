@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { Play, Square, RotateCcw, AlertCircle, Info, Copy, Download, Check, Brain, FileSearch, Database, Shield, ChevronDown, ChevronUp, ChevronRight, Pencil, Search, Calculator, ShieldCheck, FileText, Scale, Loader2, AlertTriangle, Clock, Zap } from "lucide-react";
+import { Play, Square, RotateCcw, AlertCircle, Info, Copy, Download, Check, Brain, FileSearch, Database, Shield, ChevronDown, ChevronUp, ChevronRight, Pencil, Search, Calculator, ShieldCheck, FileText, Scale, Loader2, AlertTriangle, Clock, Zap, Sparkles } from "lucide-react";
 import type { Agent, LLMProvider, AgentStep, StepType } from "../types";
 import { getAgents, getAgent } from "../services/api";
 import { useAgentExecution } from "../hooks/useAgentExecution";
@@ -11,14 +11,15 @@ import ProviderSelector from "../components/ProviderSelector";
 import FileUpload from "../components/FileUpload";
 import FeedbackWidget from "../components/FeedbackWidget";
 import ContactCTA from "../components/ContactCTA";
+import PageTransition from "../components/PageTransition";
 
 /* ── Step type configuration ── */
 const STEP_TYPE_CONFIG: Record<StepType, { icon: typeof Search; color: string; bg: string; border: string; label: string }> = {
-  tool_call:     { icon: Zap,         color: "text-blue-600",    bg: "bg-blue-50",    border: "border-blue-200",    label: "Tool Call" },
-  data_fetch:    { icon: Database,    color: "text-cyan-600",    bg: "bg-cyan-50",    border: "border-cyan-200",    label: "Data Fetch" },
-  llm_reasoning: { icon: Brain,       color: "text-purple-600",  bg: "bg-purple-50",  border: "border-purple-200",  label: "AI Reasoning" },
-  rule_check:    { icon: ShieldCheck, color: "text-amber-600",   bg: "bg-amber-50",   border: "border-amber-200",   label: "Rule Check" },
-  decision:      { icon: Check,       color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", label: "Decision" },
+  tool_call: { icon: Zap, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200", label: "Tool Call" },
+  data_fetch: { icon: Database, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-200", label: "Data Fetch" },
+  llm_reasoning: { icon: Brain, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200", label: "AI Reasoning" },
+  rule_check: { icon: ShieldCheck, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200", label: "Rule Check" },
+  decision: { icon: Check, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", label: "Decision" },
 };
 
 const TOOL_ICONS: Record<string, typeof Search> = {
@@ -42,22 +43,20 @@ function StepDetail({ step }: { step: AgentStep }) {
   const isError = step.status === "error";
 
   return (
-    <div className={`rounded-lg border transition-all duration-200 ${
-      isRunning ? "border-cta/30 bg-cta/[0.03] shadow-sm"
-        : isError ? "border-signal-red/30 bg-signal-red/[0.03]"
+    <div className={`rounded-lg border transition-all duration-200 ${isRunning ? "border-cta/30 bg-cta/[0.03] shadow-sm"
+      : isError ? "border-signal-red/30 bg-signal-red/[0.03]"
         : `${config.border}/60 bg-white`
-    }`}>
+      }`}>
       <button
         onClick={() => !isRunning && setExpanded(!expanded)}
         className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-ink-50/50 transition-colors rounded-lg"
         disabled={isRunning}
       >
         {/* Step type icon */}
-        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md mt-0.5 ${
-          isRunning ? "bg-cta/10 text-cta"
-            : isError ? "bg-signal-red/10 text-signal-red"
+        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md mt-0.5 ${isRunning ? "bg-cta/10 text-cta"
+          : isError ? "bg-signal-red/10 text-signal-red"
             : `${config.bg} ${config.color}`
-        }`}>
+          }`}>
           {isRunning ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : isDone ? (
@@ -82,9 +81,8 @@ function StepDetail({ step }: { step: AgentStep }) {
               </span>
             )}
           </div>
-          <p className={`text-xs mt-0.5 leading-relaxed ${
-            isRunning ? "text-ink-700" : isError ? "text-signal-red" : "text-ink-500"
-          }`}>
+          <p className={`text-xs mt-0.5 leading-relaxed ${isRunning ? "text-ink-700" : isError ? "text-signal-red" : "text-ink-500"
+            }`}>
             {isError ? (step.error_message || "Step failed") : (step.summary || step.label)}
           </p>
         </div>
@@ -120,13 +118,12 @@ function StepDetail({ step }: { step: AgentStep }) {
           {step.output_data && Object.keys(step.output_data).length > 0 && (
             <div>
               <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1">Output</p>
-              <pre className={`text-[11px] border rounded-md p-2 overflow-x-auto font-mono whitespace-pre-wrap max-h-40 overflow-y-auto ${
-                step.step_type === "llm_reasoning"
-                  ? "bg-purple-50/50 border-purple-100 text-purple-800"
-                  : step.step_type === "decision"
-                    ? "bg-emerald-50/50 border-emerald-100 text-emerald-800"
-                    : "bg-ink-50 border-ink-100 text-ink-600"
-              }`}>
+              <pre className={`text-[11px] border rounded-md p-2 overflow-x-auto font-mono whitespace-pre-wrap max-h-40 overflow-y-auto ${step.step_type === "llm_reasoning"
+                ? "bg-purple-50/50 border-purple-100 text-purple-800"
+                : step.step_type === "decision"
+                  ? "bg-emerald-50/50 border-emerald-100 text-emerald-800"
+                  : "bg-ink-50 border-ink-100 text-ink-600"
+                }`}>
                 {JSON.stringify(step.output_data, null, 2)}
               </pre>
             </div>
@@ -328,8 +325,30 @@ export default function Playground() {
   const showingResponse = hasExecuted || isStreaming;
   const [inputExpanded, setInputExpanded] = useState(false);
 
+  const applyPreset = (type: 'risk' | 'kyb') => {
+    if (type === 'risk') {
+      setUserPrompt("Analyze this transaction for potential BSA/AML risk. Identify any suspicious velocity patterns or geographic anomalies.");
+      setInputJson(JSON.stringify({
+        "transaction_id": "TX-9982",
+        "amount_usd": 12500,
+        "originating_country": "US",
+        "beneficiary_country": "SC",
+        "user_account_age_days": 12
+      }, null, 2));
+    } else {
+      setUserPrompt("Verify this business entity against standard KYB requirements. Flag any missing documentation or high-risk industries.");
+      setInputJson(JSON.stringify({
+        "entity_name": "Nebula Trading LLC",
+        "registration_number": "1992883-X",
+        "jurisdiction": "DE",
+        "industry_code": "522320",
+        "documents_provided": ["certificate_of_incorporation"]
+      }, null, 2));
+    }
+  };
+
   return (
-    <div>
+    <PageTransition>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-ink-950 font-headline">API Playground</h1>
         <p className="mt-1 text-sm text-ink-500">
@@ -419,9 +438,15 @@ export default function Playground() {
                     onRemoveFile={removeFile}
                   />
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-ink-500 uppercase tracking-widest">
-                      Your Instructions <span className="normal-case font-normal text-ink-400">(optional)</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-medium text-ink-500 uppercase tracking-widest">
+                        Your Instructions <span className="normal-case font-normal text-ink-400">(optional)</span>
+                      </label>
+                      <div className="flex gap-1.5">
+                        <button onClick={() => applyPreset('risk')} className="tag cursor-pointer hover:bg-ink-100 transition-colors flex items-center gap-1 !py-0.5"><Sparkles className="h-3 w-3 text-cta" /> Risk</button>
+                        <button onClick={() => applyPreset('kyb')} className="tag cursor-pointer hover:bg-ink-100 transition-colors flex items-center gap-1 !py-0.5"><Sparkles className="h-3 w-3 text-cta" /> KYB</button>
+                      </div>
+                    </div>
                     <textarea
                       value={userPrompt}
                       onChange={(e) => setUserPrompt(e.target.value)}
@@ -505,9 +530,15 @@ export default function Playground() {
                 onRemoveFile={removeFile}
               />
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-ink-500 uppercase tracking-widest">
-                  Your Instructions <span className="normal-case font-normal text-ink-400">(optional)</span>
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-medium text-ink-500 uppercase tracking-widest">
+                    Your Instructions <span className="normal-case font-normal text-ink-400">(optional)</span>
+                  </label>
+                  <div className="flex gap-1.5 hidden sm:flex">
+                    <button onClick={() => applyPreset('risk')} className="tag cursor-pointer hover:bg-ink-100 transition-colors flex items-center gap-1 !pb-0.5 !pt-0.5"><Sparkles className="h-3 w-3 text-cta" /> Risk Example</button>
+                    <button onClick={() => applyPreset('kyb')} className="tag cursor-pointer hover:bg-ink-100 transition-colors flex items-center gap-1 !pb-0.5 !pt-0.5"><Sparkles className="h-3 w-3 text-cta" /> KYB Example</button>
+                  </div>
+                </div>
                 <textarea
                   value={userPrompt}
                   onChange={(e) => setUserPrompt(e.target.value)}
@@ -628,6 +659,6 @@ export default function Playground() {
           )}
         </div>
       )}
-    </div>
+    </PageTransition>
   );
 }

@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import type { ApiKey, UsageStats } from "../types";
 import { getMyApiKeys, generateApiKey, revokeApiKey, getMyUsage } from "../services/api";
 import ApiKeyDisplay from "../components/ApiKeyDisplay";
+import PageTransition from "../components/PageTransition";
 
 interface ChatMessage {
   id: string;
@@ -110,7 +111,7 @@ export default function Dashboard() {
   const trialExpired = daysRemaining !== null && daysRemaining <= 0;
 
   return (
-    <div>
+    <PageTransition>
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-ink-950 font-headline">
           Welcome, {user.name}
@@ -465,6 +466,6 @@ export default function Dashboard() {
           </div>
         </Link>
       </div>
-    </div>
+    </PageTransition>
   );
 }

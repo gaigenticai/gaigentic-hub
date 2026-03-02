@@ -47,18 +47,30 @@ export default {
       },
       fontFamily: {
         headline: ["Montserrat", "system-ui", "sans-serif"],
-        body: ["Open Sans", "system-ui", "sans-serif"],
-        sans: ["Open Sans", "system-ui", "sans-serif"],
+        body: ["Inter", "Open Sans", "system-ui", "sans-serif"],
+        sans: ["Inter", "Open Sans", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "Fira Code", "monospace"],
       },
       borderRadius: {
+        xl: "1rem",
         lg: "0.5rem",
         md: "0.375rem",
         sm: "0.25rem",
       },
+      boxShadow: {
+        "premium-sm": "0 2px 8px -2px rgba(12, 12, 14, 0.05), 0 4px 12px -4px rgba(12, 12, 14, 0.05)",
+        "premium-md": "0 4px 16px -4px rgba(12, 12, 14, 0.05), 0 8px 24px -8px rgba(12, 12, 14, 0.05)",
+        "premium-lg": "0 8px 24px -4px rgba(12, 12, 14, 0.08), 0 16px 32px -12px rgba(12, 12, 14, 0.08)",
+        "premium-inset": "inset 0 2px 4px 0 rgba(0, 0, 0, 0.02)",
+      },
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+        'hero-glow': 'conic-gradient(from 180deg at 50% 50%, #FF7A0033 0deg, #E6322633 180deg, #FF7A0033 360deg)',
+      },
       animation: {
-        "fade-in": "fadeIn 0.2s ease-out",
-        "slide-up": "slideUp 0.2s ease-out",
+        "fade-in": "fadeIn 0.3s ease-out forwards",
+        "slide-up": "slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+        "pulse-slow": "pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
       },
       keyframes: {
         fadeIn: {
@@ -66,7 +78,7 @@ export default {
           to: { opacity: "1" },
         },
         slideUp: {
-          from: { opacity: "0", transform: "translateY(4px)" },
+          from: { opacity: "0", transform: "translateY(12px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
       },

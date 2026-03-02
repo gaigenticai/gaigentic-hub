@@ -22,6 +22,7 @@ import AuditBadge from "../components/AuditBadge";
 import CapabilityGrid from "../components/CapabilityGrid";
 import JurisdictionPills from "../components/JurisdictionPills";
 import ContactCTA from "../components/ContactCTA";
+import PageTransition from "../components/PageTransition";
 
 export default function AgentDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -35,7 +36,7 @@ export default function AgentDetail() {
     if (!slug) return;
     getAgent(slug)
       .then(setAgent)
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
   }, [slug]);
 
@@ -154,7 +155,7 @@ console.log(fullOutput);`;
   ];
 
   return (
-    <div>
+    <PageTransition>
       {/* Back link */}
       <Link
         to="/agents"
@@ -240,11 +241,10 @@ console.log(fullOutput);`;
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors duration-150 ${
-                tab === t.id
+              className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors duration-150 ${tab === t.id
                   ? "border-ink-950 text-ink-950"
                   : "border-transparent text-ink-500 hover:text-ink-900"
-              }`}
+                }`}
             >
               <Icon className="h-4 w-4" />
               {t.label}
@@ -586,6 +586,6 @@ data: {"text":""}`}</CodeBlock>
           <ContactCTA agentColor={agent.color} />
         </div>
       )}
-    </div>
+    </PageTransition>
   );
 }

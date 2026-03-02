@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, MessageCircle, CheckCircle, Copy, Check, Send, Loader2 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import PageTransition from "../components/PageTransition";
 
 interface ChatMsg {
   id: string;
@@ -359,7 +360,7 @@ export default function Signup() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white px-4">
+    <PageTransition className="flex min-h-screen items-center justify-center bg-white px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link to="/" className="mb-6 inline-flex items-center gap-2">
@@ -388,7 +389,7 @@ export default function Signup() {
               onChange={(e) => setName(e.target.value)}
               onBlur={() => handleBlur("name")}
               placeholder="John Smith"
-              className={`input ${touched.name && name.trim().length < 2 ? "border-signal-red focus-visible:ring-signal-red/20" : ""}`}
+              className={`input ${touched.name && name.trim().length < 2 ? "border-signal-red focus-visible:ring-signal-red/20" : ""} `}
               minLength={2}
               maxLength={100}
             />
@@ -411,7 +412,7 @@ export default function Signup() {
               onChange={(e) => setCompanyName(e.target.value)}
               onBlur={() => handleBlur("company")}
               placeholder="Acme Financial"
-              className={`input ${touched.company && companyName.trim().length < 2 ? "border-signal-red focus-visible:ring-signal-red/20" : ""}`}
+              className={`input ${touched.company && companyName.trim().length < 2 ? "border-signal-red focus-visible:ring-signal-red/20" : ""} `}
               minLength={2}
               maxLength={100}
             />
@@ -434,7 +435,7 @@ export default function Signup() {
               onChange={(e) => handleEmailChange(e.target.value)}
               onBlur={() => handleBlur("email")}
               placeholder="john@acme.com"
-              className={`input ${emailWarning ? "border-signal-amber focus-visible:ring-signal-amber/20" : ""} ${touched.email && !email.trim() ? "border-signal-red focus-visible:ring-signal-red/20" : ""}`}
+              className={`input ${emailWarning ? "border-signal-amber focus-visible:ring-signal-amber/20" : ""} ${touched.email && !email.trim() ? "border-signal-red focus-visible:ring-signal-red/20" : ""} `}
             />
             {touched.email && !email.trim() ? (
               <p className="mt-1 text-xs text-signal-red">Work email is required</p>
@@ -470,6 +471,6 @@ export default function Signup() {
           </p>
         </form>
       </div>
-    </div>
+    </PageTransition>
   );
 }

@@ -5,6 +5,7 @@ import { getAgents } from "../services/api";
 import AgentCard from "../components/AgentCard";
 import FeaturedAgent from "../components/FeaturedAgent";
 import AgentSearch from "../components/AgentSearch";
+import PageTransition from "../components/PageTransition";
 
 export default function AgentCatalog() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -38,7 +39,7 @@ export default function AgentCatalog() {
 
 
   return (
-    <div>
+    <PageTransition>
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-semibold text-ink-950 font-headline">
@@ -68,11 +69,10 @@ export default function AgentCatalog() {
           <button
             key={cat.id}
             onClick={() => setCategory(cat.id)}
-            className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150 ${
-              category === cat.id
+            className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150 ${category === cat.id
                 ? "bg-ink-950 text-white"
                 : "bg-white text-ink-600 border border-ink-200 hover:border-ink-300"
-            }`}
+              }`}
           >
             {cat.label}
           </button>
@@ -113,6 +113,6 @@ export default function AgentCatalog() {
           )}
         </div>
       )}
-    </div>
+    </PageTransition>
   );
 }

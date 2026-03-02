@@ -9,6 +9,7 @@ import {
   LogOut,
   Menu,
   X,
+  FileText
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -16,6 +17,7 @@ import { useAuth } from "../contexts/AuthContext";
 const NAV_ITEMS = [
   { to: "/agents", label: "Agents", icon: Bot, auth: true },
   { to: "/playground", label: "Playground", icon: Play, auth: true },
+  { to: "/docs", label: "API Docs", icon: FileText, auth: true },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, auth: true },
   { to: "/settings", label: "Settings", icon: Settings, auth: true },
 ];
@@ -48,11 +50,10 @@ export default function Layout() {
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors duration-150 ${
-                    active
+                  className={`relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors duration-150 ${active
                       ? "text-ink-950"
                       : "text-ink-500 hover:text-ink-900"
-                  }`}
+                    }`}
                 >
                   <item.icon className="h-4 w-4" />
                   {item.label}
@@ -65,11 +66,10 @@ export default function Layout() {
             {isAdmin && (
               <Link
                 to="/admin"
-                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors duration-150 ${
-                  location.pathname === "/admin"
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors duration-150 ${location.pathname === "/admin"
                     ? "text-cta"
                     : "text-ink-500 hover:text-ink-900"
-                }`}
+                  }`}
               >
                 <Shield className="h-4 w-4" />
                 Admin
@@ -84,11 +84,10 @@ export default function Layout() {
               const d = Math.max(0, Math.ceil((new Date(t).getTime() - Date.now()) / 86400000));
               if (d > 7) return null;
               return (
-                <span className={`hidden sm:inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
-                  d <= 0 ? "bg-signal-red-light text-signal-red" :
-                  d <= 3 ? "bg-signal-amber-light text-signal-amber" :
-                  "bg-cobalt-light text-cobalt"
-                }`}>
+                <span className={`hidden sm:inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${d <= 0 ? "bg-signal-red-light text-signal-red" :
+                    d <= 3 ? "bg-signal-amber-light text-signal-amber" :
+                      "bg-cobalt-light text-cobalt"
+                  }`}>
                   {d <= 0 ? "Trial expired" : `${d}d left`}
                 </span>
               );
