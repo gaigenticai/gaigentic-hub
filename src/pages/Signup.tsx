@@ -35,6 +35,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [emailWarning, setEmailWarning] = useState("");
+  const [touched, setTouched] = useState<{ name?: boolean; email?: boolean; company?: boolean }>({});
   const [copied, setCopied] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [chatSending, setChatSending] = useState(false);
@@ -55,8 +56,32 @@ export default function Signup() {
     }
   };
 
+  const isFormValid =
+    name.trim().length >= 2 &&
+    companyName.trim().length >= 2 &&
+    email.trim().length > 0 &&
+    !emailWarning;
+
+  const handleBlur = (field: "name" | "email" | "company") => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setTouched({ name: true, email: true, company: true });
+
+    if (!name.trim() || !email.trim() || !companyName.trim()) {
+      setError("All fields are required.");
+      return;
+    }
+    if (name.trim().length < 2) {
+      setError("Name must be at least 2 characters.");
+      return;
+    }
+    if (companyName.trim().length < 2) {
+      setError("Company name must be at least 2 characters.");
+      return;
+    }
     if (isBlockedEmail(email.trim())) {
       setError("Please use your work email. Consumer email addresses like Gmail and Yahoo are not accepted.");
       return;
@@ -361,11 +386,18 @@ export default function Signup() {
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onBlur={() => handleBlur("name")}
               placeholder="John Smith"
-              className="input"
+              className={`input ${touched.name && name.trim().length < 2 ? "border-signal-red focus-visible:ring-signal-red/20" : ""}`}
               minLength={2}
               maxLength={100}
             />
+            {touched.name && !name.trim() && (
+              <p className="mt-1 text-xs text-signal-red">Full name is required</p>
+            )}
+            {touched.name && name.trim() && name.trim().length < 2 && (
+              <p className="mt-1 text-xs text-signal-red">Name must be at least 2 characters</p>
+            )}
           </div>
 
           <div>
@@ -377,11 +409,18 @@ export default function Signup() {
               required
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
+              onBlur={() => handleBlur("company")}
               placeholder="Acme Financial"
-              className="input"
+              className={`input ${touched.company && companyName.trim().length < 2 ? "border-signal-red focus-visible:ring-signal-red/20" : ""}`}
               minLength={2}
               maxLength={100}
             />
+            {touched.company && !companyName.trim() && (
+              <p className="mt-1 text-xs text-signal-red">Company name is required</p>
+            )}
+            {touched.company && companyName.trim() && companyName.trim().length < 2 && (
+              <p className="mt-1 text-xs text-signal-red">Company name must be at least 2 characters</p>
+            )}
           </div>
 
           <div>
@@ -393,10 +432,13 @@ export default function Signup() {
               required
               value={email}
               onChange={(e) => handleEmailChange(e.target.value)}
+              onBlur={() => handleBlur("email")}
               placeholder="john@acme.com"
-              className={`input ${emailWarning ? "border-signal-amber focus-visible:ring-signal-amber/20" : ""}`}
+              className={`input ${emailWarning ? "border-signal-amber focus-visible:ring-signal-amber/20" : ""} ${touched.email && !email.trim() ? "border-signal-red focus-visible:ring-signal-red/20" : ""}`}
             />
-            {emailWarning ? (
+            {touched.email && !email.trim() ? (
+              <p className="mt-1 text-xs text-signal-red">Work email is required</p>
+            ) : emailWarning ? (
               <p className="mt-1 text-xs text-signal-amber">{emailWarning}</p>
             ) : (
               <p className="mt-1 text-xs text-ink-400">
@@ -413,7 +455,7 @@ export default function Signup() {
 
           <button
             type="submit"
-            disabled={loading || !!emailWarning}
+            disabled={loading || !isFormValid}
             className="btn-primary w-full justify-center py-3"
           >
             {loading ? "Creating account..." : "Get Started Free"}
