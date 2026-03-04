@@ -31,6 +31,15 @@ const TOOL_ICONS: Record<string, typeof Search> = {
   regulatory_lookup: Scale,
   llm: Brain,
   final_output: Check,
+  escalate_to_agent: Sparkles,
+  verify_us_entity: Database,
+  sanctions_screener: Shield,
+  burner_email_detector: AlertCircle,
+  bin_iin_lookup: Search,
+  ecfr_lookup: Scale,
+  macroeconomic_indicator: Database,
+  amortization_restructurer: Calculator,
+  rss_news_parser: FileSearch,
 };
 
 /* ── Expandable step detail ── */
@@ -260,24 +269,52 @@ export default function Playground() {
     });
   }, [selectedSlug]);
 
-  const handleExecute = () => {
-    if (!selectedAgent || isStreaming) return;
+  const handleExecute = async (
+    overrideSlug?: string,
+    overrideInput?: Record<string, unknown>,
+    overridePrompt?: string
+  ) => {
+    const slugToRun = overrideSlug || selectedAgent?.slug;
+    if (!slugToRun || isStreaming) return;
+
     const documentIds = getReadyDocumentIds();
-    let input: Record<string, unknown> = {};
-    if (inputJson.trim()) {
+    let parsedInput: Record<string, unknown> = {};
+
+    if (overrideInput) {
+      parsedInput = overrideInput;
+    } else if (inputJson.trim()) {
       try {
-        input = JSON.parse(inputJson);
+        parsedInput = JSON.parse(inputJson);
       } catch {
         return; // Invalid JSON
       }
     }
+
+    const promptToRun = overridePrompt ?? userPrompt.trim();
+
     setHasExecuted(true);
-    execute(selectedAgent.slug, input, {
+    const result = await execute(slugToRun, parsedInput, {
       provider,
       userApiKey: apiKey || undefined,
-      documentIds: documentIds.length > 0 ? documentIds : undefined,
-      prompt: userPrompt.trim() || undefined,
+      documentIds: overrideSlug ? undefined : documentIds.length > 0 ? documentIds : undefined,
+      prompt: promptToRun || undefined,
     });
+
+    // Handle seamless agent-to-agent handoff
+    if (result.handoff) {
+      const { target_agent_slug, context_payload, action_requested } = result.handoff;
+
+      // Update UI state to reflect the new agent
+      setSelectedSlug(target_agent_slug);
+      setInputJson(JSON.stringify(context_payload, null, 2));
+      setUserPrompt(action_requested);
+
+      // Clear legacy documents since they probably aren't relevant to the new agent
+      clearDocuments();
+
+      // Immediately trigger the new agent with the inherited context
+      handleExecute(target_agent_slug, context_payload, action_requested);
+    }
   };
 
   const handleReset = () => {
@@ -572,7 +609,7 @@ export default function Playground() {
                 </button>
               ) : (
                 <button
-                  onClick={handleExecute}
+                  onClick={() => handleExecute()}
                   disabled={(!isValidJson && !hasDocuments && !hasPrompt) || (hasInput && !isValidJson) || !selectedAgent || isUploading}
                   className="btn-primary"
                 >

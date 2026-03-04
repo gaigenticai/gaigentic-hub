@@ -17,6 +17,15 @@ import { documentAnalysisTool } from "./documentAnalysis";
 import { regulatoryLookupTool } from "./regulatoryLookup";
 import { creditAssessmentTool } from "./creditAssessment";
 import { collectionsScoringTool } from "./collectionsScoring";
+import { escalateToAgentTool } from "./escalateToAgent";
+import { verifyUsEntityTool } from "./verifyUsEntity";
+import { sanctionsScreenerTool } from "./sanctionsScreener";
+import { burnerEmailDetectorTool } from "./burnerEmailDetector";
+import { binIinLookupTool } from "./binIinLookup";
+import { ecfrLookupTool } from "./ecfrLookup";
+import { macroeconomicIndicatorTool } from "./macroeconomicIndicator";
+import { amortizationRestructurerTool } from "./amortizationRestructurer";
+import { rssNewsParserTool } from "./rssNewsParser";
 
 const ALL_TOOLS: Record<string, ToolDefinition> = {
   rag_query: ragQueryTool,
@@ -26,6 +35,15 @@ const ALL_TOOLS: Record<string, ToolDefinition> = {
   regulatory_lookup: regulatoryLookupTool,
   credit_assessment: creditAssessmentTool,
   collections_scoring: collectionsScoringTool,
+  escalate_to_agent: escalateToAgentTool,
+  verify_us_entity: verifyUsEntityTool,
+  sanctions_screener: sanctionsScreenerTool,
+  burner_email_detector: burnerEmailDetectorTool,
+  bin_iin_lookup: binIinLookupTool,
+  ecfr_lookup: ecfrLookupTool,
+  macroeconomic_indicator: macroeconomicIndicatorTool,
+  amortization_restructurer: amortizationRestructurerTool,
+  rss_news_parser: rssNewsParserTool,
 };
 
 /**

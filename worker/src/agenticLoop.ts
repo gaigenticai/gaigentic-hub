@@ -247,6 +247,20 @@ export function runAgenticLoop(params: AgenticLoopParams): ReadableStream {
           emitStep(controller, encoder, toolStep);
           allSteps.push({ ...toolStep });
 
+          // SPECIAL OVERRIDE: Agent Handoff
+          if (toolCall.tool === "escalate_to_agent" && result.success) {
+            // Emit handoff event so the client can automatically trigger the new agent
+            controller.enqueue(
+              encoder.encode(`event: handoff\ndata: ${JSON.stringify(result.data)}\n\n`),
+            );
+            // Close the stream immediately, halting current agent execution
+            controller.enqueue(
+              encoder.encode(`event: done\ndata: ${JSON.stringify({ provider: "agentic", model })}\n\n`),
+            );
+            controller.close();
+            return; // Terminate loop
+          }
+
           // Append to conversation
           conversationMessages.push(
             { role: "assistant", content: responseText },

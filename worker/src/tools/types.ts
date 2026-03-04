@@ -20,7 +20,7 @@ export interface ToolDefinition {
   /** What this tool does — presented directly to the LLM */
   description: string;
   /** Domain category — helps the LLM understand when this tool is relevant */
-  category: "knowledge" | "calculation" | "validation" | "credit" | "collections" | "document" | "compliance";
+  category: "knowledge" | "calculation" | "validation" | "credit" | "collections" | "document" | "compliance" | "system";
   /** How this tool's execution should be classified in step events */
   stepType: StepType;
   /** Parameter schema — presented to the LLM as the calling interface */

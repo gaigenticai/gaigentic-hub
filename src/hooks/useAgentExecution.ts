@@ -117,9 +117,14 @@ export function useAgentExecution() {
         documentIds?: string[];
         prompt?: string;
       },
-    ): Promise<{ auditLogId: string | null }> => {
+    ): Promise<{
+      auditLogId: string | null;
+      handoff?: { target_agent_slug: string; context_payload: Record<string, unknown>; action_requested: string; };
+    }> => {
       // Abort previous execution
       abortRef.current?.();
+
+      let handoffData: any = null;
 
       setIsStreaming(true);
       setError(null);
@@ -183,6 +188,12 @@ export function useAgentExecution() {
                   s.status === "running" ? { ...s, status: "error" as const, error_message: "Request failed" } : s,
                 ),
               );
+            } else if (evt.event === "handoff") {
+              try {
+                handoffData = JSON.parse(evt.data);
+              } catch {
+                // Ignore invalid handoff JSON
+              }
             }
           }
         }
@@ -200,7 +211,7 @@ export function useAgentExecution() {
 
       setIsStreaming(false);
       const resolvedId = await auditIdPromise;
-      return { auditLogId: resolvedId };
+      return { auditLogId: resolvedId, handoff: handoffData || undefined };
     },
     [],
   );
