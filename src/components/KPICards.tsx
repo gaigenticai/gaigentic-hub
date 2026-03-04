@@ -11,7 +11,7 @@ const TREND_CONFIG = {
 export default function KPICards({ config }: { config: KPIConfig }) {
   const [openTooltip, setOpenTooltip] = useState<number | null>(null);
 
-  if (!config || !Array.isArray(config.metrics)) {
+  if (!config || typeof config !== 'object' || !Array.isArray((config as any).metrics)) {
     return null;
   }
 

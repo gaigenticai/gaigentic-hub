@@ -31,11 +31,11 @@ const DEFAULT_COLORS = [
 ];
 
 export default function ChartRenderer({ config }: { config: ChartConfig }) {
-  const { type, title, xKey, series, data } = config;
-
-  if (!config || !Array.isArray(series) || !Array.isArray(data)) {
+  if (!config || typeof config !== 'object' || !Array.isArray((config as any).series) || !Array.isArray((config as any).data)) {
     return null;
   }
+
+  const { type, title, xKey, series, data } = config;
 
   return (
     <div className="card my-4 overflow-hidden p-0 sm:p-0">

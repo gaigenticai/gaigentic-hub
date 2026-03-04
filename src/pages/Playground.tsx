@@ -12,6 +12,7 @@ import FileUpload from "../components/FileUpload";
 import FeedbackWidget from "../components/FeedbackWidget";
 import ContactCTA from "../components/ContactCTA";
 import PageTransition from "../components/PageTransition";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 /* ── Step type configuration ── */
 const STEP_TYPE_CONFIG: Record<StepType, { icon: typeof Search; color: string; bg: string; border: string; label: string }> = {
@@ -635,19 +636,21 @@ export default function Playground() {
               </div>
             )}
 
-            {/* Real agentic steps */}
-            {steps.length > 0 && (
-              <div className="mb-4">
-                <AgentSteps steps={steps} agent={selectedAgent} isStreaming={blocks.length === 0 && isStreaming} />
-              </div>
-            )}
+            <ErrorBoundary>
+              {/* Real agentic steps */}
+              {steps.length > 0 && (
+                <div className="mb-4">
+                  <AgentSteps steps={steps} agent={selectedAgent} isStreaming={blocks.length === 0 && isStreaming} />
+                </div>
+              )}
 
-            {blocks.length === 0 && isStreaming && steps.length === 0 ? (
-              /* Fallback for single-shot agents (no tools) */
-              <AgentSteps steps={[]} agent={selectedAgent} isStreaming={isStreaming} />
-            ) : (
-              <ResponseViewer blocks={blocks} isStreaming={isStreaming} />
-            )}
+              {blocks.length === 0 && isStreaming && steps.length === 0 ? (
+                /* Fallback for single-shot agents (no tools) */
+                <AgentSteps steps={[]} agent={selectedAgent} isStreaming={isStreaming} />
+              ) : (
+                <ResponseViewer blocks={blocks} isStreaming={isStreaming} />
+              )}
+            </ErrorBoundary>
           </div>
 
           {/* Post-execution feedback + contact */}

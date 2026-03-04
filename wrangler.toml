@@ -1,0 +1,6 @@
+name = "gaigentic-hub-web"
+account_id = "1cdb4c6837f32fc56f2558fcaf137dc0"
+compatibility_date = "2024-12-05"
+
+[assets]
+directory = "dist"
