@@ -56,13 +56,6 @@ export default function AgentCatalog() {
         <AgentSearch />
       </div>
 
-      {/* Featured Agent */}
-      {!loading && featured.length > 0 && !category && (
-        <div className="mb-8">
-          <FeaturedAgent agent={featured[0]} />
-        </div>
-      )}
-
       {/* Category pills */}
       <div className="mb-6 flex flex-wrap gap-1.5">
         {categories.map((cat) => (
@@ -70,8 +63,8 @@ export default function AgentCatalog() {
             key={cat.id}
             onClick={() => setCategory(cat.id)}
             className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150 ${category === cat.id
-                ? "bg-ink-950 text-white"
-                : "bg-white text-ink-600 border border-ink-200 hover:border-ink-300"
+              ? "bg-ink-950 text-white"
+              : "bg-white text-ink-600 border border-ink-200 hover:border-ink-300"
               }`}
           >
             {cat.label}
