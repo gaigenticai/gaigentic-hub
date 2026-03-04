@@ -6,6 +6,10 @@ export default function TableRenderer({ config }: { config: TableConfig }) {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDesc, setSortDesc] = useState(false);
 
+  if (!config || !Array.isArray(config.rows) || !Array.isArray(config.columns)) {
+    return null;
+  }
+
   const handleSort = (key: string) => {
     if (sortCol === key) {
       if (sortDesc) {

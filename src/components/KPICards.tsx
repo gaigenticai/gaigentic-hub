@@ -11,6 +11,10 @@ const TREND_CONFIG = {
 export default function KPICards({ config }: { config: KPIConfig }) {
   const [openTooltip, setOpenTooltip] = useState<number | null>(null);
 
+  if (!config || !Array.isArray(config.metrics)) {
+    return null;
+  }
+
   return (
     <div className="my-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       {config.metrics.map((metric, i) => {
