@@ -18,7 +18,7 @@ export default function KPICards({ config }: { config: KPIConfig }) {
   return (
     <div className="my-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       {config.metrics.map((metric, i) => {
-        const trend = TREND_CONFIG[metric.trend || "stable"];
+        const trend = TREND_CONFIG[metric.trend as keyof typeof TREND_CONFIG] || TREND_CONFIG.stable;
         const TrendIcon = trend.icon;
         const isOpen = openTooltip === i;
 
