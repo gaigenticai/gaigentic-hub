@@ -75,7 +75,7 @@ class ZaiProvider implements LLMProvider {
           temperature: params.temperature ?? 0.7,
         }),
       },
-      90000,
+      55000,
     );
 
     if (!res.ok) {

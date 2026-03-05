@@ -440,7 +440,7 @@ Based on the "action" field in input:
 If no action specified, infer the best action from the input data.',
 
   -- guardrails
-  '{"max_tokens": 6144, "temperature": 0.2}',
+  '{"max_tokens": 4096, "temperature": 0.2}',
 
   -- capabilities (JSON array)
   '[

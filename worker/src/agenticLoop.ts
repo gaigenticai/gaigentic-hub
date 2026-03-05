@@ -25,7 +25,8 @@ import type {
 } from "./tools/types";
 import { getTool } from "./tools/registry";
 
-const MAX_ITERATIONS = 30;
+const MAX_ITERATIONS = 8;
+const LOOP_TIMEOUT_MS = 120_000; // 2 minutes total wall-clock for the whole loop
 const TOOL_CALL_OPEN = "|||TOOL_CALL|||";
 const TOOL_CALL_CLOSE = "|||END_TOOL_CALL|||";
 
@@ -118,8 +119,26 @@ export function runAgenticLoop(params: AgenticLoopParams): ReadableStream {
     async start(controller) {
       try {
         let iteration = 0;
+        const loopStart = Date.now();
 
         while (iteration < MAX_ITERATIONS) {
+          // Check wall-clock timeout
+          if (Date.now() - loopStart > LOOP_TIMEOUT_MS) {
+            stepCounter++;
+            const timeoutStep: StepEvent = {
+              step_type: "llm_reasoning",
+              tool: "llm",
+              label: "Time limit reached — generating final analysis",
+              status: "completed",
+              step: stepCounter,
+              maxSteps: MAX_ITERATIONS * 2,
+              summary: `Loop timeout after ${Math.round((Date.now() - loopStart) / 1000)}s`,
+            };
+            emitStep(controller, encoder, timeoutStep);
+            allSteps.push({ ...timeoutStep });
+            break;
+          }
+
           iteration++;
           stepCounter++;
 
@@ -271,8 +290,9 @@ export function runAgenticLoop(params: AgenticLoopParams): ReadableStream {
           );
         }
 
-        // If we hit max iterations, force a final response
-        if (iteration >= MAX_ITERATIONS && !allSteps.some((s) => s.step_type === "decision")) {
+        // If we hit max iterations or timeout, force a final response
+        const hitLimit = iteration >= MAX_ITERATIONS || Date.now() - loopStart > LOOP_TIMEOUT_MS;
+        if (hitLimit && !allSteps.some((s) => s.step_type === "decision")) {
           stepCounter++;
           const forceStep: StepEvent = {
             step_type: "llm_reasoning",
