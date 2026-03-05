@@ -74,8 +74,29 @@ export const creditAssessmentTool: ToolDefinition = {
   },
   async execute(params) {
     const type = params.assessment_type as string;
-    const value = params.value as string;
-    const ctx = (params.context as Record<string, unknown>) || {};
+    let ctx = (params.context as Record<string, unknown>) || {};
+
+    // LLM sometimes passes an object as `value` instead of a string — extract gracefully
+    let value: string;
+    if (typeof params.value === "object" && params.value !== null) {
+      const obj = params.value as Record<string, unknown>;
+      // Merge object fields into context so nothing is lost
+      ctx = { ...obj, ...ctx };
+      // Pick the most relevant numeric field as the primary value
+      const primaryKeys: Record<string, string> = {
+        dti_analysis: "monthly_income",
+        credit_score_evaluation: "credit_score",
+        affordability_check: "loan_amount",
+        ltv_calculation: "loan_amount",
+        emi_calculation: "principal",
+        income_verification: "declared_income",
+        eligibility_check: "loan_amount",
+      };
+      const key = primaryKeys[type] || Object.keys(obj).find((k) => typeof obj[k] === "number") || Object.keys(obj)[0];
+      value = String(obj[key] ?? "");
+    } else {
+      value = String(params.value ?? "");
+    }
 
     switch (type) {
       case "dti_analysis": {
@@ -84,9 +105,9 @@ export const creditAssessmentTool: ToolDefinition = {
           return { success: false, data: null, summary: `Invalid monthly income: ${value}` };
         }
 
-        const existingEmi = (ctx.existing_emi as number) || 0;
+        const existingEmi = (ctx.existing_emi as number) || (ctx.emi_amount as number) || 0;
         const proposedEmi = (ctx.proposed_emi as number) || 0;
-        const monthlyExpenses = (ctx.monthly_expenses as number) || 0;
+        const monthlyExpenses = (ctx.monthly_expenses as number) || (ctx.expenses as number) || 0;
         const loanType = (ctx.loan_type as string) || "personal_loan";
         const housingCost = (ctx.housing_cost as number) || 0;
 
