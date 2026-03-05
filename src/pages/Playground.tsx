@@ -13,6 +13,7 @@ import FeedbackWidget from "../components/FeedbackWidget";
 import ContactCTA from "../components/ContactCTA";
 import PageTransition from "../components/PageTransition";
 import ErrorBoundary from "../components/ErrorBoundary";
+import DemoBanner from "../components/DemoBanner";
 
 /* ── Step type configuration ── */
 const STEP_TYPE_CONFIG: Record<StepType, { icon: typeof Search; color: string; bg: string; border: string; label: string }> = {
@@ -387,6 +388,8 @@ export default function Playground() {
 
   return (
     <PageTransition>
+      <DemoBanner />
+
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-ink-950 font-headline">API Playground</h1>
         <p className="mt-1 text-sm text-ink-500">

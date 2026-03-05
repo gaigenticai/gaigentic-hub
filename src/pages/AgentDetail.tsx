@@ -23,6 +23,7 @@ import CapabilityGrid from "../components/CapabilityGrid";
 import JurisdictionPills from "../components/JurisdictionPills";
 import ContactCTA from "../components/ContactCTA";
 import PageTransition from "../components/PageTransition";
+import DemoBanner from "../components/DemoBanner";
 
 export default function AgentDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -156,6 +157,8 @@ console.log(fullOutput);`;
 
   return (
     <PageTransition>
+      <DemoBanner />
+
       {/* Back link */}
       <Link
         to="/agents"

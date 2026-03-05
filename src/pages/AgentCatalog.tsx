@@ -6,6 +6,7 @@ import AgentCard from "../components/AgentCard";
 import FeaturedAgent from "../components/FeaturedAgent";
 import AgentSearch from "../components/AgentSearch";
 import PageTransition from "../components/PageTransition";
+import DemoBanner from "../components/DemoBanner";
 
 export default function AgentCatalog() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -40,6 +41,8 @@ export default function AgentCatalog() {
 
   return (
     <PageTransition>
+      <DemoBanner />
+
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-semibold text-ink-950 font-headline">
