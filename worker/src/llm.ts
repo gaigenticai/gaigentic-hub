@@ -524,6 +524,9 @@ export function createProvider(
 }
 
 export function getDefaultProvider(env: Env): LLMProvider {
+  if (env.DEFAULT_LLM_PROVIDER === "workers-ai") {
+    return new WorkersAIProvider(env.AI);
+  }
   return new ZaiWithFallbackProvider(env.ZAI_API_KEY, env.ZAI_BASE_URL, env.AI);
 }
 
