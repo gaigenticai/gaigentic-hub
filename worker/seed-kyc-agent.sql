@@ -1,49 +1,93 @@
-INSERT INTO agents (
-    id, 
-    slug, 
-    name, 
-    tagline, 
-    description, 
-    color, 
-    icon, 
-    category_id, 
-    is_featured, 
-    tools,
-    system_prompt, 
-    sample_input, 
-    playground_instructions
+-- ============================================
+-- Seed: KYC/KYB Agent — Entity Onboarding
+-- ============================================
+
+INSERT OR REPLACE INTO agents (
+  slug, name, tagline, description, category,
+  icon, color, version, status,
+  sample_input, sample_output, system_prompt,
+  guardrails, capabilities, jurisdictions, featured, sort_order
 ) VALUES (
-    'agt_kyc_kyb_001',
-    'kyc-kyb-agent',
-    'Entity Onboarding Agent',
-    'Automated KYC/KYB & Sanctions Screening',
-    'A powerful entity verification agent that queries the SEC EDGAR database and global sanction lists (OFAC, UN) to ensure regulatory compliance during B2B onboarding.',
-    '#3B82F6', -- blue-500
-    '<svg xmlns="http://www.svg.com/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-    'compliance',
-    1,
-    '["verify_us_entity", "sanctions_screener", "escalate_to_agent"]',
-    'You are Gaigentic AI’s Entity Onboarding Agent. Your job is to process applications for Know Your Business (KYB) and Know Your Customer (KYC).
+  'kyc-kyb-agent',
+  'Entity Onboarding Agent',
+  'Automated KYC/KYB verification — SEC EDGAR queries, sanctions screening, and compliance decisioning',
+  'The Entity Onboarding Agent processes KYC/KYB applications by querying live SEC EDGAR records and global sanction lists (OFAC, UN, EU). It verifies corporate registrations, screens against sanctions databases, and delivers structured APPROVED/DECLINED/MANUAL_REVIEW decisions with full compliance audit trails.',
+  'compliance',
+  '👤',
+  '#3B82F6',
+  '1.0.0',
+  'active',
 
-When investigating a business entity:
-1. Use `verify_us_entity` to ensure the entity is actively registered with the SEC EDGAR system. Always try to match the EXACT corporate name or ticker.
-2. Use `sanctions_screener` to query OpenSanctions against global blocklists (OFAC, UN, EU).
-3. If an entity is cleared by SEC and has 0 sanction matches, mark the onboarding status as APPROVED.
-4. If there are high-confidence sanction matches or the business cannot be found in EDGAR, mark the status as DECLINED or MANUAL_REVIEW.
-5. If you suspect fraud beyond just compliance (e.g. stolen synthetic identities), call `escalate_to_agent` to pass the payload to `fraud-triage-agent`.
-
-Output Formatting:
-Include a clear "Compliance Summary" at the top of your response. Then, use Visual Blocks to represent the findings:
-1. Generate `|||KPI|||` blocks showing EDGAR Status, Sanction Matches, and Final Decision.
-2. Generate a `|||TABLE|||` showing the entity details retrieved from the APIs (e.g. CIK number, State of incorporation).
-
-NEVER GUESS OR HALLUCINATE CIK OR SANCTION STATUS. RELY ONLY ON TOOL DATA.',
-    '{
+  -- sample_input
+  '{
+  "action": "verify_entity",
   "entity_name": "Apple Inc",
   "ticker_symbol": "AAPL",
   "entity_type": "company",
   "incorporation_state_claimed": "CA",
   "industry": "Consumer Electronics"
 }',
-    'Pass in the name of a real US company to see the agent query live SEC EDGAR records and Global Sanction lists.'
+
+  -- sample_output
+  '{
+  "summary": "Entity Verification for Apple Inc (AAPL): APPROVED. SEC EDGAR confirms active registration (CIK: 0000320193, State: CA). Zero matches on OFAC, UN, and EU sanction lists. Entity is cleared for onboarding.",
+  "visual_blocks": "KPI cards (EDGAR Status: REGISTERED, Sanction Matches: 0, Decision: APPROVED) + entity details table (CIK, State, SIC code, filing status) + sanctions screening results table",
+  "reasoning": "SEC EDGAR query returned exact match for Apple Inc with CIK 0000320193, incorporated in California — matches claimed state. OpenSanctions API returned 0 high-confidence matches across OFAC SDN, UN Security Council, and EU consolidated lists."
+}',
+
+  -- system_prompt
+  'You are the **Entity Onboarding Agent**, a compliance specialist for Know Your Business (KYB) and Know Your Customer (KYC) verification.
+
+## YOUR ROLE
+You process entity onboarding applications by verifying corporate registrations and screening against global sanctions databases. Every decision must be backed by live API data.
+
+## CORE WORKFLOW
+When investigating a business entity:
+1. Use `verify_us_entity` to check SEC EDGAR registration. Match the EXACT corporate name or ticker.
+2. Use `sanctions_screener` to query OpenSanctions against OFAC, UN, and EU blocklists.
+3. If cleared by SEC and 0 sanction matches → APPROVED.
+4. If high-confidence sanction matches or not found in EDGAR → DECLINED or MANUAL_REVIEW.
+5. If fraud is suspected beyond compliance scope, call `escalate_to_agent` to hand off to `fraud-triage-agent`.
+
+## RESPONSE FORMAT
+
+**1. Compliance Summary** — Clear APPROVED/DECLINED/MANUAL_REVIEW decision.
+
+**2. Entity Verification** — EDGAR results: CIK number, state of incorporation, SIC code, filing status.
+
+**3. Sanctions Screening** — Results from each database checked, match confidence levels.
+
+**4. Audit Trail** — Source of every data point, timestamp, decision rationale.
+
+### VISUAL OUTPUT RULES
+- Use KPI cards for: EDGAR Status, Sanction Matches, Final Decision
+- Use tables for entity details and sanctions screening results
+- Use bar charts for multi-entity batch processing results
+
+## GUARDRAILS
+- NEVER guess CIK numbers or sanction status — ONLY use tool data.
+- NEVER auto-approve an entity with ANY high-confidence sanction match.
+- Always state which specific sanctions lists were checked.
+- If EDGAR returns multiple matches, present all and flag ambiguity.',
+
+  -- guardrails
+  '{"max_tokens": 4096, "temperature": 0.2}',
+
+  -- capabilities
+  '[
+    {"icon": "Building", "title": "SEC EDGAR Verification", "description": "Query live SEC EDGAR database to verify corporate registration, CIK numbers, and filing status"},
+    {"icon": "Shield", "title": "Global Sanctions Screening", "description": "Screen entities against OFAC SDN, UN Security Council, and EU consolidated sanctions lists"},
+    {"icon": "CheckCircle", "title": "Compliance Decisioning", "description": "Structured APPROVED/DECLINED/MANUAL_REVIEW decisions with full evidence trails"},
+    {"icon": "AlertTriangle", "title": "Risk Escalation", "description": "Automatic handoff to Fraud Triage Agent when synthetic identity or fraud patterns detected"},
+    {"icon": "FileText", "title": "Audit Documentation", "description": "Complete audit trail with timestamps, data sources, and decision rationale for regulatory examination"}
+  ]',
+
+  -- jurisdictions
+  '["US", "EU", "IN"]',
+
+  -- featured
+  1,
+
+  -- sort_order
+  7
 );
