@@ -12,7 +12,7 @@ INSERT OR REPLACE INTO agents (
   'Booking Agent',
   'AI-powered accountant — categorize transactions, analyze P&L, prep taxes, process invoices',
   'The Booking Agent is your AI-powered accountant that understands Indian, US, and European financial regulations. Upload transactions, invoices, or financial data and get instant categorization, P&L analysis, tax deduction recommendations, and financial health assessments. Every response includes a detailed reasoning trail for full auditability.',
-  'compliance',
+  'accounting',
   '📒',
   '#10b981',
   '1.0.0',
