@@ -463,6 +463,47 @@ class WorkersAIProvider implements LLMProvider {
 }
 
 // ==========================================
+// z.ai + Workers AI Fallback Provider
+// ==========================================
+
+class ZaiWithFallbackProvider implements LLMProvider {
+  name = "zai";
+  private zai: ZaiProvider;
+  private fallback: WorkersAIProvider;
+
+  constructor(apiKey: string, baseUrl: string, ai: Ai) {
+    this.zai = new ZaiProvider(apiKey, baseUrl);
+    this.fallback = new WorkersAIProvider(ai);
+  }
+
+  async chat(params: ChatParams): Promise<ChatResponse> {
+    try {
+      return await this.zai.chat(params);
+    } catch {
+      // z.ai failed (timeout/error) — fall back to Workers AI
+      const result = await this.fallback.chat(params);
+      return { ...result, provider: "workers-ai (fallback)" };
+    }
+  }
+
+  async stream(params: ChatParams): Promise<ReadableStream> {
+    const response = await this.chat(params);
+    const encoder = new TextEncoder();
+    return new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(`event: token\ndata: ${JSON.stringify({ text: response.content })}\n\n`),
+        );
+        controller.enqueue(
+          encoder.encode(`event: done\ndata: ${JSON.stringify({ provider: response.provider, model: response.model })}\n\n`),
+        );
+        controller.close();
+      },
+    });
+  }
+}
+
+// ==========================================
 // Factory
 // ==========================================
 
@@ -483,7 +524,7 @@ export function createProvider(
 }
 
 export function getDefaultProvider(env: Env): LLMProvider {
-  return new ZaiProvider(env.ZAI_API_KEY, env.ZAI_BASE_URL);
+  return new ZaiWithFallbackProvider(env.ZAI_API_KEY, env.ZAI_BASE_URL, env.AI);
 }
 
 export function getFallbackProvider(env: Env): LLMProvider {
