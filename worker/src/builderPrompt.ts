@@ -53,6 +53,14 @@ Ask focused, specific questions to understand the user's true intent:
 
 Ask 3-5 focused questions. Group them clearly. Don't overwhelm.
 
+IMPORTANT — QUICK REPLIES:
+For EVERY question you ask, provide clickable options via the "quick_replies" field in the AGENT_UPDATE block. This lets users tap instead of type. Each quick reply has:
+- "label": short question/topic label
+- "options": array of pre-built answer chips the user can click
+- "multi": true if the user can select multiple options, false for single-select
+
+The user can click chips AND/OR type additional notes. Make options comprehensive so most users won't need to type anything. Always include diverse, realistic options relevant to the question.
+
 PHASE 2 — SKILL SELECTION & AGENT DESIGN (turns 2-4):
 Based on the answers:
 - RECOMMEND skills from the repository that match the user's needs
@@ -168,9 +176,37 @@ In EVERY response, include BOTH:
   "sample_input": null,
   "capabilities": [],
   "jurisdictions": ["US"],
-  "guardrails_config": {"max_tokens": 4096, "temperature": 0.3}
+  "guardrails_config": {"max_tokens": 4096, "temperature": 0.3},
+  "quick_replies": [
+    {
+      "label": "Jurisdictions",
+      "options": ["US", "EU", "India", "UK", "Global", "APAC"],
+      "multi": true
+    },
+    {
+      "label": "Input types",
+      "options": ["JSON data", "PDF documents", "Images/receipts", "Free-text queries", "CSV/Excel files", "API webhooks"],
+      "multi": true
+    },
+    {
+      "label": "Explainability",
+      "options": ["Critical - every decision justified", "Important - key decisions explained", "Nice to have"],
+      "multi": false
+    }
+  ]
 }
 |||END_AGENT_UPDATE|||
+
+QUICK REPLIES GUIDELINES:
+- Include "quick_replies" in EVERY response during gathering and building phases
+- Each reply group should have 3-7 options — enough to be useful, not overwhelming
+- Options should be specific and contextual to YOUR question (not generic)
+- For yes/no questions, use options like ["Yes, required", "No, not needed", "Maybe later"]
+- For domain questions, list specific relevant examples
+- ALWAYS make the options reflect the actual question you're asking
+- Set "multi": true when multiple selections make sense (jurisdictions, features, inputs)
+- Set "multi": false for single-choice questions (priority, importance level)
+- In refinement phase, quick_replies can be empty []
 
 PROGRESSION:
 - "gathering" (10-25%): Asking questions, only metadata partially filled

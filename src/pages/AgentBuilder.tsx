@@ -62,6 +62,12 @@ interface NewSkill {
   visual_outputs: string[];
 }
 
+interface QuickReply {
+  label: string;
+  options: string[];
+  multi: boolean;
+}
+
 interface AgentDefinition {
   status: "gathering" | "building" | "refining" | "complete";
   progress: number;
@@ -90,6 +96,7 @@ interface AgentDefinition {
   capabilities: Array<{ icon: string; title: string; description: string }>;
   jurisdictions: string[];
   guardrails_config: { max_tokens: number; temperature: number };
+  quick_replies: QuickReply[];
 }
 
 const EMPTY_AGENT: AgentDefinition = {
@@ -112,6 +119,7 @@ const EMPTY_AGENT: AgentDefinition = {
   capabilities: [],
   jurisdictions: [],
   guardrails_config: { max_tokens: 4096, temperature: 0.3 },
+  quick_replies: [],
 };
 
 const AGENT_UPDATE_OPEN = "|||AGENT_UPDATE|||";
@@ -280,6 +288,64 @@ function PromptSection({ sectionKey, content }: { sectionKey: string; content: s
 }
 
 /* ══════════════════════════════════════════
+   Quick Replies — Clickable option chips
+   ══════════════════════════════════════════ */
+
+function QuickReplies({
+  replies,
+  selections,
+  onToggle,
+}: {
+  replies: QuickReply[];
+  selections: Record<string, string[]>;
+  onToggle: (label: string, option: string, multi: boolean) => void;
+}) {
+  if (!replies || replies.length === 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: 0.1 }}
+      className="ml-9 space-y-3 mt-2"
+    >
+      {replies.map((reply) => {
+        const selected = selections[reply.label] || [];
+        return (
+          <div key={reply.label}>
+            <p className="text-[10px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              {reply.label}
+              {reply.multi && (
+                <span className="font-normal normal-case text-ink-400">(select multiple)</span>
+              )}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {reply.options.map((opt) => {
+                const isSelected = selected.includes(opt);
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => onToggle(reply.label, opt, reply.multi)}
+                    className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all duration-150 border ${
+                      isSelected
+                        ? "bg-cta text-white border-cta shadow-sm scale-[1.02]"
+                        : "bg-white text-ink-600 border-ink-200 hover:border-cta/40 hover:bg-cta-light/50"
+                    }`}
+                  >
+                    {isSelected && <Check className="h-3 w-3 inline mr-1 -mt-0.5" />}
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </motion.div>
+  );
+}
+
+/* ══════════════════════════════════════════
    Main Page Component
    ══════════════════════════════════════════ */
 
@@ -293,6 +359,7 @@ export default function AgentBuilder() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [availableSkills, setAvailableSkills] = useState<SkillInfo[]>([]);
+  const [chipSelections, setChipSelections] = useState<Record<string, string[]>>({});
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -318,12 +385,42 @@ export default function AgentBuilder() {
     inputRef.current?.focus();
   }, []);
 
+  // Toggle a chip selection
+  const handleChipToggle = useCallback((label: string, option: string, multi: boolean) => {
+    setChipSelections((prev) => {
+      const current = prev[label] || [];
+      if (multi) {
+        // Toggle: add or remove
+        const updated = current.includes(option)
+          ? current.filter((o) => o !== option)
+          : [...current, option];
+        return { ...prev, [label]: updated };
+      } else {
+        // Single select: replace
+        return { ...prev, [label]: current.includes(option) ? [] : [option] };
+      }
+    });
+  }, []);
+
+  // Compose message from chip selections + optional free text
+  const composeMessage = useCallback(() => {
+    const parts: string[] = [];
+    const entries = Object.entries(chipSelections).filter(([, vals]) => vals.length > 0);
+    for (const [label, vals] of entries) {
+      parts.push(`${label}: ${vals.join(", ")}`);
+    }
+    const freeText = input.trim();
+    if (freeText) parts.push(freeText);
+    return parts.join("\n");
+  }, [chipSelections, input]);
+
   const sendMessage = useCallback(async (userMessage: string) => {
     if (!userMessage.trim() || isStreaming) return;
 
     const newMessages: ChatMessage[] = [...messages, { role: "user", content: userMessage.trim() }];
     setMessages(newMessages);
     setInput("");
+    setChipSelections({}); // Reset chip selections after sending
     setError(null);
     setIsStreaming(true);
     setStreamingText("");
@@ -427,6 +524,7 @@ export default function AgentBuilder() {
     setInput("");
     setStreamingText("");
     setAgentDef(EMPTY_AGENT);
+    setChipSelections({});
     setError(null);
     setIsStreaming(false);
   };
@@ -478,19 +576,31 @@ export default function AgentBuilder() {
     setSaving(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
+  const handleSend = () => {
+    const composed = composeMessage();
+    if (composed) {
+      sendMessage(composed);
+    } else if (input.trim()) {
       sendMessage(input);
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const hasChipSelections = Object.values(chipSelections).some((v) => v.length > 0);
+  const canSend = hasChipSelections || !!input.trim();
   const filledSections = Object.values(agentDef.system_prompt_sections).filter(Boolean).length;
   const totalSections = Object.keys(agentDef.system_prompt_sections).length;
   const statusConf = STATUS_CONFIG[agentDef.status] || STATUS_CONFIG.gathering;
   const hasStarted = messages.length > 0;
   const isComplete = agentDef.status === "complete" || agentDef.progress >= 90;
   const currentStreamChat = streamingText ? extractAgentUpdate(streamingText).chatText : "";
+  const showQuickReplies = !isStreaming && agentDef.quick_replies.length > 0 && messages.length > 0 && messages[messages.length - 1]?.role === "assistant";
 
   return (
     <PageTransition>
@@ -608,6 +718,15 @@ export default function AgentBuilder() {
               </div>
             )}
 
+            {/* Quick Reply Chips */}
+            {showQuickReplies && (
+              <QuickReplies
+                replies={agentDef.quick_replies}
+                selections={chipSelections}
+                onToggle={handleChipToggle}
+              />
+            )}
+
             {/* Error */}
             {error && (
               <div className="flex items-start gap-2 rounded-lg border border-signal-red/20 bg-signal-red-light px-3 py-2.5">
@@ -621,15 +740,43 @@ export default function AgentBuilder() {
 
           {/* Input */}
           <div className="border-t border-ink-100 bg-white p-3">
+            {/* Chip selection summary */}
+            {hasChipSelections && (
+              <div className="flex flex-wrap gap-1 mb-2">
+                {Object.entries(chipSelections).map(([label, vals]) =>
+                  vals.map((v) => (
+                    <span
+                      key={`${label}-${v}`}
+                      className="inline-flex items-center gap-1 rounded-md bg-cta/10 text-cta text-[10px] font-medium px-2 py-0.5 border border-cta/15"
+                    >
+                      <Check className="h-2.5 w-2.5" />
+                      {v}
+                      <button
+                        onClick={() => handleChipToggle(label, v, true)}
+                        className="ml-0.5 hover:text-cta-hover"
+                      >
+                        x
+                      </button>
+                    </span>
+                  ))
+                )}
+              </div>
+            )}
             <div className="flex gap-2">
               <textarea
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={hasStarted ? "Describe more, answer questions, or refine..." : "Describe the agent you want to build..."}
+                placeholder={
+                  hasChipSelections
+                    ? "Add extra details (optional), or just hit send..."
+                    : hasStarted
+                      ? "Select options above, or type your answer..."
+                      : "Describe the agent you want to build..."
+                }
                 className="flex-1 resize-none rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-800 placeholder:text-ink-400 focus:border-cta focus:outline-none focus:ring-1 focus:ring-cta/30 transition-colors"
-                rows={2}
+                rows={hasChipSelections ? 1 : 2}
                 disabled={isStreaming}
               />
               {isStreaming ? (
@@ -641,8 +788,8 @@ export default function AgentBuilder() {
                 </button>
               ) : (
                 <button
-                  onClick={() => sendMessage(input)}
-                  disabled={!input.trim()}
+                  onClick={handleSend}
+                  disabled={!canSend}
                   className="self-end rounded-lg bg-cta p-2.5 text-white hover:bg-cta-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   <Send className="h-4 w-4" />

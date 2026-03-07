@@ -544,6 +544,6 @@ export function getDefaultModel(provider: string): string {
       return WORKERS_AI_MODEL;
     case "zai":
     default:
-      return "glm-4.5";
+      return "glm-5";
   }
 }
