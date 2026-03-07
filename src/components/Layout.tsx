@@ -9,13 +9,15 @@ import {
   LogOut,
   Menu,
   X,
-  FileText
+  FileText,
+  Wand2
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 
 const NAV_ITEMS = [
   { to: "/agents", label: "Agents", icon: Bot, auth: true },
+  { to: "/builder", label: "Builder", icon: Wand2, auth: true },
   { to: "/playground", label: "Playground", icon: Play, auth: true },
   { to: "/docs", label: "API Docs", icon: FileText, auth: true },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, auth: true },

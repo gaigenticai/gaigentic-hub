@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import Docs from "./pages/Docs";
+import AgentBuilder from "./pages/AgentBuilder";
 
 export default function App() {
   const location = useLocation();
@@ -25,6 +26,7 @@ export default function App() {
           <Route element={<RequireAuth />}>
             <Route path="/agents" element={<AgentCatalog />} />
             <Route path="/agents/:slug" element={<AgentDetail />} />
+            <Route path="/builder" element={<AgentBuilder />} />
             <Route path="/playground" element={<Playground />} />
             <Route path="/playground/:slug" element={<Playground />} />
             <Route path="/docs" element={<Docs />} />
