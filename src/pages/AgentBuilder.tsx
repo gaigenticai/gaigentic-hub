@@ -25,6 +25,10 @@ import {
   RotateCcw,
   Eye,
   FlaskConical,
+  Key,
+  Lock,
+  X,
+  Info,
 } from "lucide-react";
 import PageTransition from "../components/PageTransition";
 import DemoBanner from "../components/DemoBanner";
@@ -346,6 +350,151 @@ function QuickReplies({
 }
 
 /* ══════════════════════════════════════════
+   AI Provider Banner
+   ══════════════════════════════════════════ */
+
+const PROVIDERS = [
+  { value: "openai", label: "OpenAI", placeholder: "sk-..." },
+  { value: "anthropic", label: "Anthropic", placeholder: "sk-ant-..." },
+  { value: "zai", label: "z.ai (GLM)", placeholder: "your-zai-key..." },
+];
+
+const SESSION_KEY_PROVIDER = "builder_ai_provider";
+const SESSION_KEY_APIKEY = "builder_ai_key";
+
+function AIProviderBanner({
+  provider,
+  apiKey,
+  onProviderChange,
+  onApiKeyChange,
+  onClear,
+}: {
+  provider: string;
+  apiKey: string;
+  onProviderChange: (p: string) => void;
+  onApiKeyChange: (k: string) => void;
+  onClear: () => void;
+}) {
+  const [expanded, setExpanded] = useState(!apiKey);
+  const [showKey, setShowKey] = useState(false);
+  const hasKey = !!apiKey.trim();
+  const selectedProvider = PROVIDERS.find((p) => p.value === provider) || PROVIDERS[0];
+
+  return (
+    <div className={`rounded-xl border transition-all duration-300 ${
+      hasKey
+        ? "border-signal-green/30 bg-signal-green/5"
+        : "border-amber-300/60 bg-amber-50/60"
+    }`}>
+      {/* Collapsed / Summary bar */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-3 px-4 py-2.5 text-left"
+      >
+        <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
+          hasKey ? "bg-signal-green/15" : "bg-amber-100"
+        }`}>
+          {hasKey ? (
+            <Lock className="h-3.5 w-3.5 text-signal-green" />
+          ) : (
+            <Key className="h-3.5 w-3.5 text-amber-600" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          {hasKey ? (
+            <p className="text-xs font-semibold text-signal-green">
+              Using your {selectedProvider.label} key
+              <span className="ml-1.5 font-normal text-ink-400">· Stored in session only</span>
+            </p>
+          ) : (
+            <p className="text-xs font-semibold text-amber-700">
+              Bring your own AI key
+              <span className="ml-1.5 font-normal text-amber-600/80">for best results & privacy</span>
+            </p>
+          )}
+        </div>
+        {hasKey && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onClear(); }}
+            className="text-ink-400 hover:text-signal-red transition-colors p-1 rounded-md hover:bg-signal-red/10"
+            title="Remove API key"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <ChevronDown className={`h-3.5 w-3.5 text-ink-400 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
+      </button>
+
+      {/* Expanded config panel */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-3 space-y-3">
+              <div className="flex gap-2">
+                {/* Provider selector */}
+                <select
+                  value={provider}
+                  onChange={(e) => onProviderChange(e.target.value)}
+                  className="rounded-lg border border-ink-200 bg-white px-2.5 py-2 text-xs font-medium text-ink-700 focus:border-cta focus:outline-none focus:ring-1 focus:ring-cta/30"
+                >
+                  {PROVIDERS.map((p) => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+                {/* API key input */}
+                <div className="flex-1 relative">
+                  <input
+                    type={showKey ? "text" : "password"}
+                    value={apiKey}
+                    onChange={(e) => onApiKeyChange(e.target.value)}
+                    placeholder={selectedProvider.placeholder}
+                    className="w-full rounded-lg border border-ink-200 bg-white pl-3 pr-8 py-2 text-xs text-ink-700 placeholder:text-ink-300 focus:border-cta focus:outline-none focus:ring-1 focus:ring-cta/30 font-mono"
+                  />
+                  <button
+                    onClick={() => setShowKey(!showKey)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-300 hover:text-ink-500 transition-colors"
+                    title={showKey ? "Hide key" : "Show key"}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Security info */}
+              <div className="flex items-start gap-2 rounded-lg bg-white/60 border border-ink-100 px-3 py-2">
+                <Info className="h-3.5 w-3.5 text-cobalt shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="text-[10px] text-ink-500 leading-relaxed">
+                    <span className="font-semibold text-ink-700">Your key is secure.</span>
+                    {" "}Stored in your browser's session storage only — never saved to our database.
+                  </p>
+                  <p className="text-[10px] text-ink-400 leading-relaxed">
+                    Automatically destroyed when you close this tab or browser. Used only for this builder session.
+                  </p>
+                </div>
+              </div>
+
+              {!hasKey && (
+                <p className="text-[10px] text-amber-600/80 flex items-center gap-1.5">
+                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                  Without your own key, the builder will use our shared AI — which may be slower or rate-limited.
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
    Main Page Component
    ══════════════════════════════════════════ */
 
@@ -360,10 +509,24 @@ export default function AgentBuilder() {
   const [saving, setSaving] = useState(false);
   const [availableSkills, setAvailableSkills] = useState<SkillInfo[]>([]);
   const [chipSelections, setChipSelections] = useState<Record<string, string[]>>({});
+  const [userProvider, setUserProvider] = useState(() => sessionStorage.getItem(SESSION_KEY_PROVIDER) || "openai");
+  const [userApiKey, setUserApiKey] = useState(() => sessionStorage.getItem(SESSION_KEY_APIKEY) || "");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Sync provider/key to sessionStorage
+  useEffect(() => {
+    if (userProvider) sessionStorage.setItem(SESSION_KEY_PROVIDER, userProvider);
+    if (userApiKey) sessionStorage.setItem(SESSION_KEY_APIKEY, userApiKey);
+    else sessionStorage.removeItem(SESSION_KEY_APIKEY);
+  }, [userProvider, userApiKey]);
+
+  const handleClearKey = useCallback(() => {
+    setUserApiKey("");
+    sessionStorage.removeItem(SESSION_KEY_APIKEY);
+  }, []);
 
   // Load available skills from repository
   useEffect(() => {
@@ -438,6 +601,7 @@ export default function AgentBuilder() {
         },
         body: JSON.stringify({
           messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+          ...(userApiKey.trim() ? { provider: userProvider, user_api_key: userApiKey.trim() } : {}),
         }),
         signal: controller.signal,
       });
@@ -505,7 +669,7 @@ export default function AgentBuilder() {
     }
 
     setIsStreaming(false);
-  }, [messages, isStreaming]);
+  }, [messages, isStreaming, userProvider, userApiKey]);
 
   const handleStop = () => {
     abortRef.current?.abort();
@@ -628,6 +792,17 @@ export default function AgentBuilder() {
             Start Over
           </button>
         )}
+      </div>
+
+      {/* AI Provider Config */}
+      <div className="mb-4">
+        <AIProviderBanner
+          provider={userProvider}
+          apiKey={userApiKey}
+          onProviderChange={setUserProvider}
+          onApiKeyChange={setUserApiKey}
+          onClear={handleClearKey}
+        />
       </div>
 
       {/* ── Split Screen ── */}
