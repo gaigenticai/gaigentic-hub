@@ -1099,6 +1099,20 @@ function AIProviderBanner({
 }) {
   const [expanded, setExpanded] = useState(!apiKey);
   const [showKey, setShowKey] = useState(false);
+  const [providerOpen, setProviderOpen] = useState(false);
+  const providerRef = useRef<HTMLDivElement>(null);
+
+  // Close provider dropdown on outside click
+  useEffect(() => {
+    if (!providerOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (providerRef.current && !providerRef.current.contains(e.target as Node)) {
+        setProviderOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [providerOpen]);
   const hasKey = !!apiKey.trim();
   const selectedProvider = PROVIDERS.find((p) => p.value === provider) || PROVIDERS[0];
 
@@ -1159,16 +1173,45 @@ function AIProviderBanner({
           >
             <div className="px-4 pb-3 space-y-3">
               <div className="flex gap-2">
-                {/* Provider selector */}
-                <select
-                  value={provider}
-                  onChange={(e) => onProviderChange(e.target.value)}
-                  className="rounded-lg border border-ink-200 bg-white px-2.5 py-2 text-xs font-medium text-ink-700 focus:border-cta focus:outline-none focus:ring-1 focus:ring-cta/30"
-                >
-                  {PROVIDERS.map((p) => (
-                    <option key={p.value} value={p.value}>{p.label}</option>
-                  ))}
-                </select>
+                {/* Provider selector — custom dropdown */}
+                <div className="relative" ref={providerRef}>
+                  <button
+                    type="button"
+                    onClick={() => setProviderOpen(!providerOpen)}
+                    className="flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-2.5 py-2 text-xs font-medium text-ink-700 hover:border-ink-300 hover:bg-ink-50 focus:border-cta focus:outline-none focus:ring-1 focus:ring-cta/30 transition-colors min-w-[110px]"
+                  >
+                    <span className="flex-1 text-left">{selectedProvider.label}</span>
+                    <ChevronDown className={`h-3 w-3 text-ink-400 transition-transform duration-150 ${providerOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  <AnimatePresence>
+                    {providerOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                        transition={{ duration: 0.12 }}
+                        className="absolute left-0 top-full mt-1 z-50 min-w-[140px] rounded-lg border border-ink-200 bg-white shadow-lg overflow-hidden"
+                      >
+                        {PROVIDERS.map((p) => (
+                          <button
+                            key={p.value}
+                            onClick={() => { onProviderChange(p.value); setProviderOpen(false); }}
+                            className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors ${
+                              provider === p.value
+                                ? "bg-cta/8 text-cta font-semibold"
+                                : "text-ink-700 hover:bg-ink-50"
+                            }`}
+                          >
+                            {provider === p.value && (
+                              <Check className="h-3 w-3 shrink-0" />
+                            )}
+                            <span className={provider === p.value ? "" : "ml-5"}>{p.label}</span>
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
                 {/* API key input */}
                 <div className="flex-1 relative">
                   <input
