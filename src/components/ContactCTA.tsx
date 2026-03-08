@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Calendar, MessageCircle, Send, X, Loader2 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { CALENDLY_URL } from "../config";
 
 interface ChatMessage {
   id: string;
@@ -210,7 +211,7 @@ export default function ContactCTA({ compact = false }: Props) {
         <KrishnaChat userName={auth.user!.name} chaosbirdUsername={auth.user!.chaosbird_username!} />
         {!compact && (
           <a
-            href="https://calendly.com/krishnagai"
+            href={CALENDLY_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-secondary text-sm"
@@ -229,7 +230,7 @@ export default function ContactCTA({ compact = false }: Props) {
       <div className="space-y-2">
         <ChaosbirdEmbed />
         <a
-          href="https://calendly.com/krishnagai"
+          href={CALENDLY_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 py-2 text-xs font-medium text-ink-700 transition-colors duration-150 hover:border-ink-300 hover:bg-ink-50"
@@ -247,7 +248,7 @@ export default function ContactCTA({ compact = false }: Props) {
       <p className="mb-4 text-sm text-ink-500">Chat with Krishna directly or book a demo to discuss your use case.</p>
       <div className="mb-4"><ChaosbirdEmbed /></div>
       <a
-        href="https://calendly.com/krishnagai"
+        href={CALENDLY_URL}
         target="_blank"
         rel="noopener noreferrer"
         className="btn-secondary text-sm"

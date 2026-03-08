@@ -3,13 +3,14 @@ import type { Env, UserRow, AgentRow } from "../types";
 import { isAdmin } from "../adminAuth";
 import { checkRateLimit } from "../rateLimit";
 import { sendChaosbirdMessage } from "../chaosbird";
+import { AGENT_STATUS, ADMIN_RATE_LIMIT, ADMIN_RATE_WINDOW_MS } from "../constants";
 
 const admin = new Hono<{ Bindings: Env }>();
 
 // Admin middleware
 admin.use("*", async (c, next) => {
   const ip = c.req.header("cf-connecting-ip") || "unknown";
-  const rl = await checkRateLimit(c.env.DB, `admin:${ip}`, 60, 60_000);
+  const rl = await checkRateLimit(c.env.DB, `admin:${ip}`, ADMIN_RATE_LIMIT, ADMIN_RATE_WINDOW_MS);
   if (!rl.allowed) return c.json({ error: "Too many requests" }, 429);
 
   if (!(await isAdmin(c))) return c.json({ error: "Unauthorized" }, 401);
@@ -286,7 +287,7 @@ admin.post("/agents", async (c) => {
       body.category,
       body.icon,
       body.color,
-      body.status || "active",
+      body.status || AGENT_STATUS.ACTIVE,
       body.sample_input,
       body.sample_output,
       body.system_prompt,

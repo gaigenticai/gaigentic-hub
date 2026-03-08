@@ -6,6 +6,7 @@ import type { ApiKey, UsageStats } from "../types";
 import { getMyApiKeys, generateApiKey, revokeApiKey, getMyUsage } from "../services/api";
 import ApiKeyDisplay from "../components/ApiKeyDisplay";
 import PageTransition from "../components/PageTransition";
+import { CALENDLY_URL } from "../config";
 
 interface ChatMessage {
   id: string;
@@ -276,7 +277,7 @@ export default function Dashboard() {
               </button>
             )}
             <a
-              href="https://calendly.com/krishnagai"
+              href={CALENDLY_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-secondary text-sm"

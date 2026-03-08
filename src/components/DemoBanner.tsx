@@ -1,4 +1,5 @@
 import { Info } from "lucide-react";
+import { CALENDLY_URL } from "../config";
 
 export default function DemoBanner() {
   return (
@@ -8,7 +9,7 @@ export default function DemoBanner() {
         <span className="font-semibold">Live demo environment</span> — This system uses open-source AI models and external APIs that may occasionally be slow or unavailable. If you experience any issues, simply retry.
         For a tailored walkthrough with full reliability,{" "}
         <a
-          href="https://calendly.com/krishnagai"
+          href={CALENDLY_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="font-semibold underline underline-offset-2 hover:text-amber-950"

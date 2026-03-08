@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../types";
+import { AGENT_STATUS } from "../constants";
 
 const health = new Hono<{ Bindings: Env }>();
 
@@ -20,7 +21,7 @@ health.get("/", async (c) => {
 // GET /health/agents
 health.get("/agents", async (c) => {
   const agents = await c.env.DB.prepare(
-    "SELECT slug, name, status FROM agents WHERE status != 'deprecated' ORDER BY sort_order ASC",
+    `SELECT slug, name, status FROM agents WHERE status != '${AGENT_STATUS.DEPRECATED}' ORDER BY sort_order ASC`,
   ).all<{ slug: string; name: string; status: string }>();
 
   return c.json({

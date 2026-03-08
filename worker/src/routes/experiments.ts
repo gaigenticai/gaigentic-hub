@@ -7,13 +7,14 @@ import { Hono } from "hono";
 import type { Env } from "../types";
 import { isAdmin } from "../adminAuth";
 import { checkRateLimit } from "../rateLimit";
+import { EXPERIMENT_STATUS, ADMIN_RATE_LIMIT, ADMIN_RATE_WINDOW_MS } from "../constants";
 
 const experiments = new Hono<{ Bindings: Env }>();
 
 // Admin middleware
 experiments.use("*", async (c, next) => {
   const ip = c.req.header("cf-connecting-ip") || "unknown";
-  const rl = await checkRateLimit(c.env.DB, `admin:${ip}`, 60, 60_000);
+  const rl = await checkRateLimit(c.env.DB, `admin:${ip}`, ADMIN_RATE_LIMIT, ADMIN_RATE_WINDOW_MS);
   if (!rl.allowed) return c.json({ error: "Too many requests" }, 429);
   if (!(await isAdmin(c))) return c.json({ error: "Unauthorized" }, 401);
   await next();
@@ -52,7 +53,7 @@ experiments.post("/", async (c) => {
     .bind(body.agent_id, body.name, body.description || null, body.variant_a_prompt, body.variant_b_prompt, split)
     .first<{ id: number }>();
 
-  return c.json({ experiment: { id: result?.id, ...body, status: "draft" } }, 201);
+  return c.json({ experiment: { id: result?.id, ...body, status: EXPERIMENT_STATUS.DRAFT } }, 201);
 });
 
 // GET /experiments — list all experiments
@@ -165,10 +166,10 @@ experiments.put("/:id", async (c) => {
 
   if (body.status) {
     const validTransitions: Record<string, string[]> = {
-      draft: ["running"],
-      running: ["paused", "completed"],
-      paused: ["running", "completed"],
-      completed: [],
+      [EXPERIMENT_STATUS.DRAFT]: [EXPERIMENT_STATUS.RUNNING],
+      [EXPERIMENT_STATUS.RUNNING]: [EXPERIMENT_STATUS.PAUSED, EXPERIMENT_STATUS.COMPLETED],
+      [EXPERIMENT_STATUS.PAUSED]: [EXPERIMENT_STATUS.RUNNING, EXPERIMENT_STATUS.COMPLETED],
+      [EXPERIMENT_STATUS.COMPLETED]: [],
     };
 
     if (!validTransitions[existing.status]?.includes(body.status)) {
@@ -178,10 +179,10 @@ experiments.put("/:id", async (c) => {
     updates.push("status = ?");
     values.push(body.status);
 
-    if (body.status === "running" && existing.status === "draft") {
+    if (body.status === EXPERIMENT_STATUS.RUNNING && existing.status === EXPERIMENT_STATUS.DRAFT) {
       updates.push("started_at = datetime('now')");
     }
-    if (body.status === "completed") {
+    if (body.status === EXPERIMENT_STATUS.COMPLETED) {
       updates.push("completed_at = datetime('now')");
       if (body.winner) {
         updates.push("winner = ?");
@@ -230,7 +231,7 @@ export async function getExperimentVariant(
 ): Promise<{ experimentId: number; variant: "a" | "b"; prompt: string } | null> {
   const experiment = await db
     .prepare(
-      "SELECT id, variant_a_prompt, variant_b_prompt, traffic_split FROM prompt_experiments WHERE agent_id = ? AND status = 'running' LIMIT 1",
+      `SELECT id, variant_a_prompt, variant_b_prompt, traffic_split FROM prompt_experiments WHERE agent_id = ? AND status = '${EXPERIMENT_STATUS.RUNNING}' LIMIT 1`,
     )
     .bind(agentId)
     .first<{

@@ -25,7 +25,7 @@ import { queryKnowledge } from "./rag";
 import { VISUAL_OUTPUT_INSTRUCTIONS } from "./visualEngine";
 import { checkRateLimit } from "./rateLimit";
 import { sendChaosbirdMessage } from "./chaosbird";
-import { API_RATE_LIMIT, API_RATE_WINDOW_MS, EXPIRY_WARNING_DAYS } from "./constants";
+import { API_RATE_LIMIT, API_RATE_WINDOW_MS, CHAT_RATE_LIMIT, CHAT_RATE_WINDOW_MS, EXPIRY_WARNING_DAYS, AGENT_STATUS } from "./constants";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -33,14 +33,15 @@ const app = new Hono<{ Bindings: Env }>();
 // Middleware
 // ==========================================
 
+const DEFAULT_ORIGINS = "http://localhost:3001,https://hub.gaigentic.ai,https://gaigentic-hub.pages.dev";
+
 app.use(
   "*",
   cors({
-    origin: [
-      "http://localhost:3001",
-      "https://hub.gaigentic.ai",
-      "https://gaigentic-hub.pages.dev",
-    ],
+    origin: (origin, c) => {
+      const allowedOrigins = (c.env.ALLOWED_ORIGINS || DEFAULT_ORIGINS).split(",");
+      return allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+    },
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
     exposeHeaders: ["X-Audit-Log-Id", "X-Using-Shared-Key"],
@@ -97,7 +98,7 @@ app.post("/chat/send", async (c) => {
   }
 
   const ip = c.req.header("cf-connecting-ip") || "unknown";
-  const rl = await checkRateLimit(c.env.DB, `chat:${ip}`, 5, 60000);
+  const rl = await checkRateLimit(c.env.DB, `chat:${ip}`, CHAT_RATE_LIMIT, CHAT_RATE_WINDOW_MS);
   if (!rl.allowed) return c.json({ error: "Too many messages, try again later" }, 429);
 
   // Send to Krishna's inbox with sender_name = user's chaosbird username
@@ -207,7 +208,7 @@ app.post("/v1/agents/:slug/run", async (c) => {
 
   // Get agent
   const agent = await c.env.DB.prepare(
-    "SELECT * FROM agents WHERE slug = ? AND status = 'active'",
+    `SELECT * FROM agents WHERE slug = ? AND status = '${AGENT_STATUS.ACTIVE}'`,
   )
     .bind(slug)
     .first<{

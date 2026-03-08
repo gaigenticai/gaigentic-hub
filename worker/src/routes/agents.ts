@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Env, AgentRow } from "../types";
+import { AGENT_STATUS } from "../constants";
 
 const AGENT_FIELDS = "id, slug, name, tagline, description, category, icon, color, version, status, sample_input, sample_output, capabilities, jurisdictions, playground_instructions, featured, created_at";
 
@@ -9,7 +10,7 @@ const agents = new Hono<{ Bindings: Env }>();
 agents.get("/", async (c) => {
   const category = c.req.query("category");
 
-  let query = `SELECT ${AGENT_FIELDS} FROM agents WHERE status != 'deprecated'`;
+  let query = `SELECT ${AGENT_FIELDS} FROM agents WHERE status != '${AGENT_STATUS.DEPRECATED}'`;
   const binds: string[] = [];
 
   if (category) {
@@ -30,7 +31,7 @@ agents.get("/", async (c) => {
 // GET /agents/featured — Get featured agents (public)
 agents.get("/featured", async (c) => {
   const result = await c.env.DB.prepare(
-    `SELECT ${AGENT_FIELDS} FROM agents WHERE featured = 1 AND status = 'active' ORDER BY sort_order ASC LIMIT 5`,
+    `SELECT ${AGENT_FIELDS} FROM agents WHERE featured = 1 AND status = '${AGENT_STATUS.ACTIVE}' ORDER BY sort_order ASC LIMIT 5`,
   ).all<AgentRow>();
 
   return c.json({ agents: result.results });
@@ -47,7 +48,7 @@ agents.get("/search", async (c) => {
   const searchTerm = `%${q}%`;
   const result = await c.env.DB.prepare(
     `SELECT ${AGENT_FIELDS} FROM agents
-     WHERE status != 'deprecated'
+     WHERE status != '${AGENT_STATUS.DEPRECATED}'
        AND (name LIKE ? OR tagline LIKE ? OR description LIKE ? OR category LIKE ? OR capabilities LIKE ? OR jurisdictions LIKE ?)
      ORDER BY featured DESC, sort_order ASC
      LIMIT 20`,

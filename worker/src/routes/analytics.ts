@@ -7,13 +7,14 @@ import { Hono } from "hono";
 import type { Env } from "../types";
 import { isAdmin } from "../adminAuth";
 import { checkRateLimit } from "../rateLimit";
+import { ADMIN_RATE_LIMIT, ADMIN_RATE_WINDOW_MS } from "../constants";
 
 const analytics = new Hono<{ Bindings: Env }>();
 
 // Admin middleware
 analytics.use("*", async (c, next) => {
   const ip = c.req.header("cf-connecting-ip") || "unknown";
-  const rl = await checkRateLimit(c.env.DB, `admin:${ip}`, 60, 60_000);
+  const rl = await checkRateLimit(c.env.DB, `admin:${ip}`, ADMIN_RATE_LIMIT, ADMIN_RATE_WINDOW_MS);
   if (!rl.allowed) return c.json({ error: "Too many requests" }, 429);
   if (!(await isAdmin(c))) return c.json({ error: "Unauthorized" }, 401);
   await next();

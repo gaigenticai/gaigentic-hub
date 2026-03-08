@@ -7,6 +7,7 @@ import { decrypt } from "../encryption";
 import { buildBuilderPrompt } from "../builderPrompt";
 import type { SkillSummary } from "../builderPrompt";
 import { getAllTools } from "../tools/registry";
+import { SKILL_STATUS, AGENT_STATUS, BUILDER_RATE_LIMIT, BUILDER_RATE_WINDOW_MS } from "../constants";
 
 const builder = new Hono<{ Bindings: Env }>();
 
@@ -27,7 +28,7 @@ builder.get("/tools", async (c) => {
 // GET /builder/skills — List all available skills
 builder.get("/skills", async (c) => {
   const skills = await c.env.DB.prepare(
-    "SELECT id, slug, name, description, category, icon, required_tools, input_hints, visual_outputs, reuse_count FROM skills WHERE status = 'active' ORDER BY reuse_count DESC",
+    `SELECT id, slug, name, description, category, icon, required_tools, input_hints, visual_outputs, reuse_count FROM skills WHERE status = '${SKILL_STATUS.ACTIVE}' ORDER BY reuse_count DESC`,
   ).all<{
     id: string;
     slug: string;
@@ -55,7 +56,7 @@ builder.get("/skills", async (c) => {
 builder.post("/chat", async (c) => {
   const ip = c.req.header("cf-connecting-ip") || "unknown";
 
-  const rl = await checkRateLimit(c.env.DB, `builder:${ip}`, 10, 60000);
+  const rl = await checkRateLimit(c.env.DB, `builder:${ip}`, BUILDER_RATE_LIMIT, BUILDER_RATE_WINDOW_MS);
   if (!rl.allowed) return c.json({ error: "Rate limit exceeded" }, 429);
 
   const body = await c.req.json<{
@@ -86,7 +87,7 @@ builder.post("/chat", async (c) => {
 
   // Load all active skills for the builder prompt
   const skillRows = await c.env.DB.prepare(
-    "SELECT slug, name, description, category, required_tools, reuse_count FROM skills WHERE status = 'active' ORDER BY reuse_count DESC",
+    `SELECT slug, name, description, category, required_tools, reuse_count FROM skills WHERE status = '${SKILL_STATUS.ACTIVE}' ORDER BY reuse_count DESC`,
   ).all<{
     slug: string;
     name: string;
@@ -143,7 +144,7 @@ builder.post("/chat", async (c) => {
     const stream = await provider.stream({
       model,
       messages: llmMessages,
-      max_tokens: 6144,
+      max_tokens: 8192,
       temperature: 0.4,
     });
 
@@ -323,7 +324,7 @@ builder.post("/save", async (c) => {
 
   await c.env.DB.prepare(
     `INSERT INTO agents (id, slug, name, tagline, description, category, icon, color, version, status, sample_input, sample_output, system_prompt, guardrails, capabilities, jurisdictions, tools, featured, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, '1.0.0', 'active', ?, '', ?, ?, ?, ?, ?, 0, 99)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, '1.0.0', '${AGENT_STATUS.ACTIVE}', ?, '', ?, ?, ?, ?, ?, 0, 99)`,
   )
     .bind(
       agentId,

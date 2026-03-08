@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import PageTransition from "../components/PageTransition";
+import { CALENDLY_URL } from "../config";
 import {
   Bot,
   Zap,
@@ -413,7 +414,7 @@ export default function Landing() {
           <div className="overflow-hidden rounded-lg border border-ink-100 bg-white">
             <div
               className="calendly-inline-widget"
-              data-url="https://calendly.com/krishnagai"
+              data-url={CALENDLY_URL}
               style={{ minWidth: "320px", height: "700px" }}
             />
           </div>

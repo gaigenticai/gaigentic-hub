@@ -16,6 +16,7 @@ export interface Env {
   CHAOSBIRD_ADMIN_TOKEN: string;
 
   // Vars (set in wrangler.toml)
+  ALLOWED_ORIGINS?: string;
   CHAOSBIRD_API_URL: string;
   DEFAULT_LLM_PROVIDER: string;
   DEFAULT_LLM_MODEL: string;

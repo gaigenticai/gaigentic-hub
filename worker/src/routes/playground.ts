@@ -14,6 +14,7 @@ import {
   TRIAL_MAX_CALLS_PER_AGENT,
   PLAYGROUND_RATE_LIMIT,
   PLAYGROUND_RATE_WINDOW_MS,
+  AGENT_STATUS,
 } from "../constants";
 
 const playground = new Hono<{ Bindings: Env }>();
@@ -114,13 +115,13 @@ playground.post("/execute", async (c) => {
 
   // Get agent
   const agent = await c.env.DB.prepare(
-    "SELECT * FROM agents WHERE slug = ? AND status != 'deprecated'",
+    `SELECT * FROM agents WHERE slug = ? AND status != '${AGENT_STATUS.DEPRECATED}'`,
   )
     .bind(body.agent_slug)
     .first<AgentRow>();
 
   if (!agent) return c.json({ error: "Agent not found" }, 404);
-  if (agent.status === "coming_soon") {
+  if (agent.status === AGENT_STATUS.COMING_SOON) {
     return c.json({ error: "This agent is coming soon" }, 400);
   }
 

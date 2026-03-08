@@ -42,6 +42,7 @@ import {
 import PageTransition from "../components/PageTransition";
 import DemoBanner from "../components/DemoBanner";
 import { getSessionToken } from "../services/api";
+import { CALENDLY_URL } from "../config";
 
 /* ══════════════════════════════════════════
    Types
@@ -1544,9 +1545,81 @@ export default function AgentBuilder() {
       const { chatText, agent } = extractAgentUpdate(fullText);
       if (agent) setAgentDef(agent);
 
-      setMessages((prev) => [...prev, { role: "assistant", content: chatText || fullText }]);
+      const displayText = chatText || fullText;
+      setMessages((prev) => [...prev, { role: "assistant", content: displayText }]);
       setStreamingText("");
-      addAudit("ai_response", "AI responded", (chatText || fullText).slice(0, 80) + "...");
+      addAudit("ai_response", "AI responded", displayText.slice(0, 80) + "...");
+
+      // Auto-retry: if the LLM responded but didn't include an AGENT_UPDATE block,
+      // and we're past the first exchange, send a nudge to get the JSON block
+      if (!agent && newMessages.length >= 3 && !fullText.includes(AGENT_UPDATE_OPEN)) {
+        const retryMsg = "Please output the |||AGENT_UPDATE||| JSON block now with the current agent definition. Keep your text to 1 sentence.";
+        const retryMessages: ChatMessage[] = [...newMessages, { role: "assistant", content: displayText }, { role: "user", content: retryMsg }];
+
+        // Don't show the retry message to user — just inject it silently
+        setIsStreaming(true);
+        setStreamingText("");
+        try {
+          const retryRes = await fetch(`${API_BASE}/builder/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              messages: retryMessages.map((m) => ({ role: m.role, content: m.content })),
+              ...(userApiKey.trim() ? { provider: userProvider, user_api_key: userApiKey.trim() } : {}),
+            }),
+            signal: abortRef.current?.signal,
+          });
+
+          if (retryRes.ok && retryRes.body) {
+            const retryReader = retryRes.body.getReader();
+            const retryDecoder = new TextDecoder();
+            const retrySseParser = createSSEParser();
+            let retryFull = "";
+
+            while (true) {
+              const { done: rDone, value: rVal } = await retryReader.read();
+              if (rDone) break;
+              const rChunk = retryDecoder.decode(rVal, { stream: true });
+              const rEvents = retrySseParser(rChunk);
+              for (const evt of rEvents) {
+                if (evt.event === "token" || evt.event === "message" || evt.event === "") {
+                  try {
+                    const parsed = JSON.parse(evt.data);
+                    retryFull += parsed.text || parsed.content || "";
+                    setStreamingText(retryFull);
+                    const { agent: rAgent } = extractAgentUpdate(retryFull);
+                    if (rAgent) setAgentDef(rAgent);
+                  } catch {
+                    if (typeof evt.data === "string" && !evt.data.startsWith("{")) {
+                      retryFull += evt.data;
+                      setStreamingText(retryFull);
+                    }
+                  }
+                }
+              }
+            }
+
+            const { chatText: retryChatText, agent: retryAgent } = extractAgentUpdate(retryFull);
+            if (retryAgent) setAgentDef(retryAgent);
+            // Append retry response to last assistant message (invisible to user)
+            if (retryChatText) {
+              setMessages((prev) => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last?.role === "assistant") {
+                  updated[updated.length - 1] = { ...last, content: last.content + "\n\n" + retryChatText };
+                }
+                return updated;
+              });
+            }
+            setStreamingText("");
+          }
+        } catch {
+          // Retry failed silently — user can continue chatting
+        }
+        setIsStreaming(false);
+      }
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         setError((err as Error).message);
@@ -2269,7 +2342,7 @@ export default function AgentBuilder() {
                       {saving ? "Creating..." : "Test in Sandbox"}
                     </button>
                     <a
-                      href="https://calendly.com/krishnagai"
+                      href={CALENDLY_URL}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex-1 flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold bg-gradient-to-r from-cta to-amber-500 text-white hover:brightness-110 shadow-sm transition-all"

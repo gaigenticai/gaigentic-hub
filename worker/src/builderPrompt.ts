@@ -99,6 +99,13 @@ IMPORTANT RULES:
 - Explain your design choices as you go.
 - Always include an |||AGENT_UPDATE||| block in every response.
 - When writing system prompt sections, be DETAILED (50+ lines per major section).
+
+TOKEN BUDGET — CRITICAL:
+- Your CONVERSATIONAL text must be SHORT (3-8 sentences max). NEVER repeat the agent spec as prose.
+- ALL detail goes INSIDE the |||AGENT_UPDATE||| JSON block, not in the conversation text.
+- NEVER list metadata, skills, tools, or prompt sections as text outside the JSON block.
+- When the user says "finalize", "complete", "create", "proceed" — output a 1-2 sentence acknowledgment, then IMMEDIATELY output the |||AGENT_UPDATE||| JSON block. Do NOT restate what the agent does.
+- The JSON block is the SOURCE OF TRUTH. The conversation text is just a brief summary.
 </conversation_protocol>
 
 <skill_repository>
@@ -236,6 +243,8 @@ CRITICAL: The AGENT_UPDATE block must be valid JSON. Use null for unfilled field
 CRITICAL: The "tools" array should be the union of all required_tools from selected skills.
 CRITICAL: When creating new_skills, include the full skill object with prompt_template.
 CRITICAL: The slug must be lowercase, hyphenated, no special characters.
+CRITICAL: Output the |||AGENT_UPDATE||| block EARLY in your response, right after 1-3 sentences of conversation. Do NOT put it at the end after a long prose explanation — you may run out of tokens.
+CRITICAL: NEVER describe the agent as text AND as JSON. The JSON block IS the description. Your text should only say things like "I've updated the agent definition below" or "Here's what I've configured so far".
 </output_format>
 
 <design_principles>
