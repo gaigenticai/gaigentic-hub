@@ -33,6 +33,11 @@ import {
   Crown,
   ExternalLink,
   Calendar,
+  Download,
+  MessageSquare,
+  Clock,
+  Layers,
+  Activity,
 } from "lucide-react";
 import PageTransition from "../components/PageTransition";
 import DemoBanner from "../components/DemoBanner";
@@ -74,6 +79,16 @@ interface QuickReply {
   label: string;
   options: string[];
   multi: boolean;
+}
+
+interface AuditEntry {
+  id: number;
+  timestamp: Date;
+  type: "user_message" | "ai_response" | "skill_added" | "skill_created" | "prompt_filled" | "tool_activated" | "config_changed" | "phase_change" | "agent_named" | "jurisdiction_set" | "agent_complete";
+  icon: string;
+  title: string;
+  detail: string;
+  color: string;
 }
 
 interface AgentDefinition {
@@ -240,13 +255,15 @@ const STARTER_PROMPTS = [
 
 function cleanMarkdown(text: string): string {
   return text
-    .replace(/^#{1,6}\s+/gm, "")          // ## Heading → Heading
-    .replace(/\*\*([^*]+)\*\*/g, "$1")     // **bold** → bold
-    .replace(/\*([^*]+)\*/g, "$1")         // *italic* → italic
-    .replace(/^---+$/gm, "")              // --- horizontal rules
+    .replace(/^#{1,6}\s+/gm, "")              // ## Heading → Heading
+    .replace(/\*\*([^*]*)\*\*/g, "$1")         // **bold** → bold (greedy)
+    .replace(/\*([^*]+)\*/g, "$1")             // *italic* → italic
+    .replace(/`([^`]+)`/g, "$1")               // `code` → code
+    .replace(/^[\s]*[-*+]\s+/gm, "  ")         // - list / * list / + list → indented
+    .replace(/^---+$/gm, "")                   // --- horizontal rules
     .replace(/^-{3,}$/gm, "")
-    .replace(/^\d+\.\s*\*\*/gm, "")       // 1. ** numbered bold starts
-    .replace(/\n{3,}/g, "\n\n")           // collapse triple+ newlines
+    .replace(/^\d+\.\s*\*\*/gm, "")            // 1. ** numbered bold starts
+    .replace(/\n{3,}/g, "\n\n")                // collapse triple+ newlines
     .trim();
 }
 
@@ -405,7 +422,79 @@ const BUILD_STAGES = [
   { key: "deploy", label: "Ready", icon: Rocket, threshold: 95 },
 ];
 
-function BuildPipeline({ progress }: { progress: number }) {
+function BuildPipeline({
+  progress,
+  agentDef,
+  availableSkills,
+}: {
+  progress: number;
+  agentDef: AgentDefinition;
+  availableSkills: SkillInfo[];
+}) {
+  const [expandedStage, setExpandedStage] = useState<string | null>(null);
+
+  const getStageContent = (key: string): { title: string; items: Array<{ label: string; value: string }> } | null => {
+    switch (key) {
+      case "intent": {
+        const items: Array<{ label: string; value: string }> = [];
+        if (agentDef.metadata.name) items.push({ label: "Agent", value: agentDef.metadata.name });
+        if (agentDef.metadata.category) items.push({ label: "Category", value: agentDef.metadata.category });
+        if (agentDef.jurisdictions.length > 0) items.push({ label: "Jurisdictions", value: agentDef.jurisdictions.join(", ") });
+        if (agentDef.metadata.tagline) items.push({ label: "Purpose", value: agentDef.metadata.tagline });
+        return items.length > 0 ? { title: "Intent Discovery", items } : null;
+      }
+      case "skills": {
+        const items: Array<{ label: string; value: string }> = [];
+        for (const slug of agentDef.skills) {
+          const info = availableSkills.find((s) => s.slug === slug);
+          items.push({ label: info?.category || "skill", value: info?.name || slug });
+        }
+        for (const ns of agentDef.new_skills || []) {
+          items.push({ label: "new · " + ns.category, value: ns.name });
+        }
+        return items.length > 0 ? { title: "Selected Skills", items } : null;
+      }
+      case "prompts": {
+        const items: Array<{ label: string; value: string }> = [];
+        for (const [k, v] of Object.entries(agentDef.system_prompt_sections)) {
+          if (v) {
+            const cfg = SECTION_CONFIG[k];
+            items.push({ label: cfg?.label || k, value: v.slice(0, 120) + (v.length > 120 ? "..." : "") });
+          }
+        }
+        return items.length > 0 ? { title: "System Prompt", items } : null;
+      }
+      case "tools": {
+        const items = agentDef.tools.map((t) => ({
+          label: "tool",
+          value: TOOL_LABELS[t] || t,
+        }));
+        return items.length > 0 ? { title: "Active Tools", items } : null;
+      }
+      case "guardrails": {
+        const items: Array<{ label: string; value: string }> = [];
+        if (agentDef.system_prompt_sections.guardrails) {
+          items.push({ label: "Guardrails", value: agentDef.system_prompt_sections.guardrails.slice(0, 150) + "..." });
+        }
+        items.push({ label: "Temperature", value: String(agentDef.guardrails_config.temperature) });
+        items.push({ label: "Max Tokens", value: String(agentDef.guardrails_config.max_tokens) });
+        return { title: "Safety & Guards", items };
+      }
+      case "deploy": {
+        const items: Array<{ label: string; value: string }> = [];
+        const filled = Object.values(agentDef.system_prompt_sections).filter(Boolean).length;
+        const total = Object.keys(agentDef.system_prompt_sections).length;
+        items.push({ label: "Status", value: agentDef.status });
+        items.push({ label: "Completeness", value: `${filled}/${total} sections` });
+        items.push({ label: "Skills", value: `${agentDef.skills.length + (agentDef.new_skills?.length || 0)} equipped` });
+        items.push({ label: "Tools", value: `${agentDef.tools.length} active` });
+        return { title: "Deployment Summary", items };
+      }
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="rounded-xl bg-white border border-ink-100 p-4 shadow-premium-sm">
       <div className="flex items-center justify-between mb-3">
@@ -417,22 +506,32 @@ function BuildPipeline({ progress }: { progress: number }) {
           const Icon = stage.icon;
           const isComplete = progress >= stage.threshold;
           const isActive = !isComplete && (i === 0 || progress >= BUILD_STAGES[i - 1].threshold);
-          const isNext = !isComplete && !isActive;
+          const hasContent = isComplete || isActive;
+          const isExpanded = expandedStage === stage.key;
 
           return (
             <div key={stage.key} className="flex items-center flex-1 last:flex-none">
               {/* Stage node */}
-              <div className="flex flex-col items-center gap-1.5 relative">
+              <div
+                className={`flex flex-col items-center gap-1.5 relative ${hasContent ? "cursor-pointer" : ""}`}
+                onClick={() => hasContent && setExpandedStage(isExpanded ? null : stage.key)}
+              >
                 <motion.div
                   initial={{ scale: 0.8 }}
                   animate={{
                     scale: isActive ? [1, 1.15, 1] : 1,
-                    boxShadow: isActive ? "0 0 12px rgba(255,122,0,0.4)" : "none",
+                    boxShadow: isActive
+                      ? "0 0 12px rgba(255,122,0,0.4)"
+                      : isExpanded
+                        ? "0 0 8px rgba(255,122,0,0.25)"
+                        : "none",
                   }}
                   transition={isActive ? { duration: 1.5, repeat: Infinity, ease: "easeInOut" } : { duration: 0.3 }}
                   className={`flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all duration-500 ${
                     isComplete
-                      ? "bg-signal-green border-signal-green"
+                      ? isExpanded
+                        ? "bg-signal-green border-signal-green ring-2 ring-signal-green/20"
+                        : "bg-signal-green border-signal-green"
                       : isActive
                         ? "bg-cta border-cta"
                         : "bg-ink-50 border-ink-200"
@@ -446,7 +545,7 @@ function BuildPipeline({ progress }: { progress: number }) {
                 </motion.div>
                 <span
                   className={`text-[9px] font-semibold tracking-wide transition-colors duration-300 ${
-                    isComplete ? "text-signal-green" : isActive ? "text-cta" : "text-ink-300"
+                    isExpanded ? "text-cta" : isComplete ? "text-signal-green" : isActive ? "text-cta" : "text-ink-300"
                   }`}
                 >
                   {stage.label}
@@ -469,6 +568,50 @@ function BuildPipeline({ progress }: { progress: number }) {
           );
         })}
       </div>
+
+      {/* Slide-down content panel */}
+      <AnimatePresence mode="wait">
+        {expandedStage && (() => {
+          const content = getStageContent(expandedStage);
+          if (!content) return null;
+          const stageInfo = BUILD_STAGES.find((s) => s.key === expandedStage);
+          const StageIcon = stageInfo?.icon || Target;
+
+          return (
+            <motion.div
+              key={expandedStage}
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="overflow-hidden"
+            >
+              <div className="mt-3 pt-3 border-t border-ink-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <StageIcon className="h-3.5 w-3.5 text-cta" />
+                  <span className="text-[10px] font-bold text-ink-700 uppercase tracking-wider">{content.title}</span>
+                </div>
+                <div className="grid gap-1.5">
+                  {content.items.map((item, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.04 }}
+                      className="flex items-start gap-2 rounded-md bg-ink-25 border border-ink-100/60 px-2.5 py-1.5"
+                    >
+                      <span className="text-[9px] font-semibold text-ink-400 uppercase tracking-wider shrink-0 mt-0.5 min-w-[60px]">
+                        {item.label}
+                      </span>
+                      <span className="text-[11px] text-ink-700 leading-relaxed">{item.value}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
     </div>
   );
 }
@@ -508,6 +651,208 @@ function Confetti({ show }: { show: boolean }) {
           }}
         />
       ))}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   Audit Whiteboard — real-time build log
+   ══════════════════════════════════════════ */
+
+const AUDIT_COLORS: Record<string, string> = {
+  user_message: "text-cobalt",
+  ai_response: "text-cta",
+  skill_added: "text-emerald-600",
+  skill_created: "text-purple-600",
+  prompt_filled: "text-cyan-600",
+  tool_activated: "text-amber-600",
+  config_changed: "text-indigo-600",
+  phase_change: "text-blue-600",
+  agent_named: "text-pink-600",
+  jurisdiction_set: "text-emerald-600",
+  agent_complete: "text-signal-green",
+};
+
+const AUDIT_ICONS: Record<string, typeof MessageSquare> = {
+  user_message: MessageSquare,
+  ai_response: Bot,
+  skill_added: Sparkles,
+  skill_created: Zap,
+  prompt_filled: Brain,
+  tool_activated: Wrench,
+  config_changed: BarChart3,
+  phase_change: Layers,
+  agent_named: Target,
+  jurisdiction_set: Globe,
+  agent_complete: Rocket,
+};
+
+const AUDIT_BG: Record<string, string> = {
+  user_message: "bg-cobalt/8",
+  ai_response: "bg-cta/8",
+  skill_added: "bg-emerald-500/8",
+  skill_created: "bg-purple-500/8",
+  prompt_filled: "bg-cyan-500/8",
+  tool_activated: "bg-amber-500/8",
+  config_changed: "bg-indigo-500/8",
+  phase_change: "bg-blue-500/8",
+  agent_named: "bg-pink-500/8",
+  jurisdiction_set: "bg-emerald-500/8",
+  agent_complete: "bg-signal-green/8",
+};
+
+function AuditWhiteboard({
+  entries,
+  agentDef,
+  onDownload,
+}: {
+  entries: AuditEntry[];
+  agentDef: AgentDefinition;
+  onDownload: (format: "json" | "csv") => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [downloadOpen, setDownloadOpen] = useState(false);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [entries.length]);
+
+  const timeStr = (d: Date) => {
+    const h = d.getHours().toString().padStart(2, "0");
+    const m = d.getMinutes().toString().padStart(2, "0");
+    const s = d.getSeconds().toString().padStart(2, "0");
+    return `${h}:${m}:${s}`;
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="bg-white/80 backdrop-blur-sm border-b border-ink-100 px-3 py-2.5 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-ink-800 to-ink-600">
+            <Activity className="h-3 w-3 text-white" />
+          </div>
+          <span className="text-xs font-semibold text-ink-800">Build Log</span>
+          {entries.length > 0 && (
+            <span className="text-[9px] font-mono bg-ink-100 text-ink-500 px-1.5 py-0.5 rounded">
+              {entries.length}
+            </span>
+          )}
+        </div>
+        {entries.length > 0 && (
+          <div className="relative">
+            <button
+              onClick={() => setDownloadOpen(!downloadOpen)}
+              className="flex items-center gap-1 text-[10px] font-semibold text-ink-500 hover:text-cta transition-colors rounded-md px-2 py-1 hover:bg-ink-50"
+            >
+              <Download className="h-3 w-3" />
+              Export
+            </button>
+            <AnimatePresence>
+              {downloadOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                  className="absolute right-0 top-full mt-1 z-10 bg-white rounded-lg border border-ink-200 shadow-lg overflow-hidden"
+                >
+                  <button
+                    onClick={() => { onDownload("json"); setDownloadOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-2 text-[11px] text-ink-700 hover:bg-ink-50 w-full text-left"
+                  >
+                    <FileJson className="h-3 w-3 text-cta" />
+                    Download JSON
+                  </button>
+                  <button
+                    onClick={() => { onDownload("csv"); setDownloadOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-2 text-[11px] text-ink-700 hover:bg-ink-50 w-full text-left border-t border-ink-100"
+                  >
+                    <BarChart3 className="h-3 w-3 text-cobalt" />
+                    Download CSV
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+
+      {/* Timeline */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3">
+        {entries.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
+            <motion.div
+              animate={{ opacity: [0.4, 0.7, 0.4] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              className="flex h-12 w-12 items-center justify-center rounded-xl bg-ink-50 border border-ink-100 mb-3"
+            >
+              <Clock className="h-5 w-5 text-ink-300" />
+            </motion.div>
+            <p className="text-xs font-semibold text-ink-400">Audit trail starts here</p>
+            <p className="text-[10px] text-ink-300 mt-1 max-w-[180px]">
+              Every action, decision, and configuration will be logged in real-time
+            </p>
+          </div>
+        ) : (
+          <div className="relative">
+            {/* Timeline line */}
+            <div className="absolute left-[11px] top-2 bottom-2 w-px bg-gradient-to-b from-ink-200 via-ink-100 to-transparent" />
+
+            <div className="space-y-1">
+              {entries.map((entry, i) => {
+                const IconComp = AUDIT_ICONS[entry.type] || Activity;
+                const color = AUDIT_COLORS[entry.type] || "text-ink-500";
+                const bg = AUDIT_BG[entry.type] || "bg-ink-50";
+
+                return (
+                  <motion.div
+                    key={entry.id}
+                    initial={{ opacity: 0, x: -8, y: 4 }}
+                    animate={{ opacity: 1, x: 0, y: 0 }}
+                    transition={{ duration: 0.25, delay: i === entries.length - 1 ? 0.1 : 0 }}
+                    className="relative flex gap-2 group"
+                  >
+                    {/* Timeline dot */}
+                    <div className={`relative z-10 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full ${bg} ring-2 ring-white`}>
+                      <IconComp className={`h-2.5 w-2.5 ${color}`} />
+                    </div>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 pb-2">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className={`text-[10px] font-semibold ${color}`}>{entry.title}</span>
+                        <span className="text-[8px] font-mono text-ink-300 shrink-0">{timeStr(entry.timestamp)}</span>
+                      </div>
+                      <p className="text-[10px] text-ink-500 leading-relaxed mt-0.5 break-words">{entry.detail}</p>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer stats */}
+      {entries.length > 0 && (
+        <div className="border-t border-ink-100 bg-white/80 backdrop-blur-sm px-3 py-2 shrink-0">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="text-center">
+              <p className="text-[9px] text-ink-400 uppercase tracking-wider">Steps</p>
+              <p className="text-sm font-bold text-ink-800 tabular-nums">{entries.length}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[9px] text-ink-400 uppercase tracking-wider">Skills</p>
+              <p className="text-sm font-bold text-emerald-600 tabular-nums">
+                {agentDef.skills.length + (agentDef.new_skills?.length || 0)}
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-[9px] text-ink-400 uppercase tracking-wider">Tools</p>
+              <p className="text-sm font-bold text-amber-600 tabular-nums">{agentDef.tools.length}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -795,6 +1140,23 @@ export default function AgentBuilder() {
   const [userApiKey, setUserApiKey] = useState(() => sessionStorage.getItem(SESSION_KEY_APIKEY) || "");
   const [showConfetti, setShowConfetti] = useState(false);
   const confettiShownRef = useRef(false);
+  const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
+  const auditIdRef = useRef(0);
+  const prevAgentDefRef = useRef<AgentDefinition>(EMPTY_AGENT);
+
+  const addAudit = useCallback((type: AuditEntry["type"], title: string, detail: string) => {
+    auditIdRef.current += 1;
+    const entry: AuditEntry = {
+      id: auditIdRef.current,
+      timestamp: new Date(),
+      type,
+      icon: "",
+      title,
+      detail,
+      color: AUDIT_COLORS[type] || "text-ink-500",
+    };
+    setAuditLog((prev) => [...prev, entry]);
+  }, []);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -820,6 +1182,67 @@ export default function AgentBuilder() {
       setTimeout(() => setShowConfetti(false), 4000);
     }
   }, [agentDef.status, agentDef.progress]);
+
+  // Audit trail — diff agentDef changes
+  useEffect(() => {
+    const prev = prevAgentDefRef.current;
+    const curr = agentDef;
+
+    // Phase change
+    if (curr.status !== prev.status && curr.status !== "gathering") {
+      const labels: Record<string, string> = { building: "Building phase started", refining: "Refinement phase", complete: "Agent complete!" };
+      addAudit("phase_change", labels[curr.status] || curr.status, `Progress: ${curr.progress}%`);
+    }
+
+    // Agent named
+    if (curr.metadata.name && curr.metadata.name !== prev.metadata.name) {
+      addAudit("agent_named", "Agent named", `"${curr.metadata.name}" — ${curr.metadata.tagline || curr.metadata.category || ""}`);
+    }
+
+    // Skills added
+    for (const slug of curr.skills) {
+      if (!prev.skills.includes(slug)) {
+        addAudit("skill_added", "Skill selected", slug);
+      }
+    }
+
+    // New skills created
+    for (const ns of curr.new_skills || []) {
+      if (!(prev.new_skills || []).find((p) => p.slug === ns.slug)) {
+        addAudit("skill_created", "New skill created", `${ns.name} (${ns.category})`);
+      }
+    }
+
+    // Prompt sections filled
+    for (const [key, val] of Object.entries(curr.system_prompt_sections)) {
+      const prevVal = prev.system_prompt_sections[key as keyof typeof prev.system_prompt_sections];
+      if (val && !prevVal) {
+        const cfg = SECTION_CONFIG[key];
+        addAudit("prompt_filled", "Prompt section ready", cfg?.label || key);
+      }
+    }
+
+    // Tools activated
+    for (const tool of curr.tools) {
+      if (!prev.tools.includes(tool)) {
+        addAudit("tool_activated", "Tool activated", TOOL_LABELS[tool] || tool);
+      }
+    }
+
+    // Jurisdictions
+    for (const j of curr.jurisdictions) {
+      if (!prev.jurisdictions.includes(j)) {
+        addAudit("jurisdiction_set", "Jurisdiction added", j);
+      }
+    }
+
+    // Completion
+    if ((curr.status === "complete" || curr.progress >= 95) && prev.status !== "complete" && prev.progress < 95) {
+      addAudit("agent_complete", "Agent ready!", `${curr.metadata.name} is ready for deployment`);
+    }
+
+    prevAgentDefRef.current = curr;
+  }, [agentDef, addAudit]);
 
   // Load available skills from repository
   useEffect(() => {
@@ -880,6 +1303,8 @@ export default function AgentBuilder() {
     setError(null);
     setIsStreaming(true);
     setStreamingText("");
+
+    addAudit("user_message", "User message", userMessage.trim().slice(0, 100) + (userMessage.length > 100 ? "..." : ""));
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -955,6 +1380,7 @@ export default function AgentBuilder() {
 
       setMessages((prev) => [...prev, { role: "assistant", content: chatText || fullText }]);
       setStreamingText("");
+      addAudit("ai_response", "AI responded", (chatText || fullText).slice(0, 80) + "...");
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         setError((err as Error).message);
@@ -962,7 +1388,7 @@ export default function AgentBuilder() {
     }
 
     setIsStreaming(false);
-  }, [messages, isStreaming, userProvider, userApiKey]);
+  }, [messages, isStreaming, userProvider, userApiKey, addAudit]);
 
   const handleStop = () => {
     abortRef.current?.abort();
@@ -986,7 +1412,60 @@ export default function AgentBuilder() {
     setIsStreaming(false);
     setShowConfetti(false);
     confettiShownRef.current = false;
+    setAuditLog([]);
+    auditIdRef.current = 0;
+    prevAgentDefRef.current = EMPTY_AGENT;
   };
+
+  const handleDownloadAudit = useCallback((format: "json" | "csv") => {
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      agent: agentDef.metadata.name || "Untitled Agent",
+      slug: agentDef.metadata.slug,
+      status: agentDef.status,
+      progress: agentDef.progress,
+      skills: agentDef.skills,
+      new_skills: (agentDef.new_skills || []).map((s) => s.name),
+      tools: agentDef.tools,
+      jurisdictions: agentDef.jurisdictions,
+      system_prompt_sections: Object.fromEntries(
+        Object.entries(agentDef.system_prompt_sections).map(([k, v]) => [k, v ? "filled" : "empty"]),
+      ),
+      audit_trail: auditLog.map((e) => ({
+        step: e.id,
+        time: e.timestamp.toISOString(),
+        type: e.type,
+        title: e.title,
+        detail: e.detail,
+      })),
+    };
+
+    let content: string;
+    let mime: string;
+    let ext: string;
+
+    if (format === "json") {
+      content = JSON.stringify(exportData, null, 2);
+      mime = "application/json";
+      ext = "json";
+    } else {
+      const rows = [["Step", "Time", "Type", "Title", "Detail"]];
+      for (const e of exportData.audit_trail) {
+        rows.push([String(e.step), e.time, e.type, e.title, `"${e.detail.replace(/"/g, '""')}"`]);
+      }
+      content = rows.map((r) => r.join(",")).join("\n");
+      mime = "text/csv";
+      ext = "csv";
+    }
+
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${agentDef.metadata.slug || "agent"}-build-log.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [agentDef, auditLog]);
 
   const handleSave = async () => {
     if (agentDef.status !== "complete" && agentDef.progress < 70) {
@@ -1065,46 +1544,39 @@ export default function AgentBuilder() {
     <PageTransition>
       <DemoBanner />
 
-      {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cta to-amber-500">
-              <Wand2 className="h-4 w-4 text-white" />
-            </div>
-            <h1 className="text-2xl font-semibold text-ink-950 font-headline">Agent Builder</h1>
-            <span className="rounded-md bg-cta-light text-cta text-[10px] font-bold px-1.5 py-0.5 uppercase tracking-wider">
-              Intent Engine
-            </span>
+      {/* Header + BYOK — compact single row */}
+      <div className="mb-3 flex items-center gap-4">
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cta to-amber-500">
+            <Wand2 className="h-3.5 w-3.5 text-white" />
           </div>
-          <p className="mt-1 text-sm text-ink-500 ml-10">
-            Describe your agent in plain English. I'll ask the right questions and build it live.
-          </p>
+          <h1 className="text-lg font-semibold text-ink-950 font-headline">Agent Builder</h1>
+          <span className="rounded-md bg-cta-light text-cta text-[9px] font-bold px-1.5 py-0.5 uppercase tracking-wider">
+            Intent Engine
+          </span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <AIProviderBanner
+            provider={userProvider}
+            apiKey={userApiKey}
+            onProviderChange={setUserProvider}
+            onApiKeyChange={setUserApiKey}
+            onClear={handleClearKey}
+          />
         </div>
         {hasStarted && (
-          <button onClick={handleReset} className="btn-secondary !text-xs">
+          <button onClick={handleReset} className="btn-secondary !text-xs shrink-0">
             <RotateCcw className="h-3.5 w-3.5" />
             Start Over
           </button>
         )}
       </div>
 
-      {/* AI Provider Config */}
-      <div className="mb-4">
-        <AIProviderBanner
-          provider={userProvider}
-          apiKey={userApiKey}
-          onProviderChange={setUserProvider}
-          onApiKeyChange={setUserApiKey}
-          onClear={handleClearKey}
-        />
-      </div>
-
-      {/* ── Split Screen ── */}
-      <div className="flex gap-4 h-[calc(100vh-14rem)] min-h-[500px]">
+      {/* ── Three-Column Layout ── */}
+      <div className="flex gap-3 h-[calc(100vh-10rem)] min-h-[500px]">
 
         {/* ═══ LEFT: Chat Panel ═══ */}
-        <div className="flex flex-col w-full lg:w-[48%] rounded-xl border border-ink-200 bg-white overflow-hidden">
+        <div className="flex flex-col w-full lg:w-[30%] rounded-xl border border-ink-200 bg-white overflow-hidden">
           {/* Chat messages */}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
             {/* Welcome state */}
@@ -1280,8 +1752,8 @@ export default function AgentBuilder() {
           </div>
         </div>
 
-        {/* ═══ RIGHT: Live Agent Preview ═══ */}
-        <div className="hidden lg:flex flex-col w-[52%] rounded-xl border border-ink-200 bg-gradient-to-br from-ink-25 via-white to-ink-50 overflow-hidden relative">
+        {/* ═══ CENTER: Live Agent Preview ═══ */}
+        <div className="hidden lg:flex flex-col w-[40%] rounded-xl border border-ink-200 bg-gradient-to-br from-ink-25 via-white to-ink-50 overflow-hidden relative">
           {/* Confetti overlay */}
           <Confetti show={showConfetti} />
 
@@ -1342,7 +1814,7 @@ export default function AgentBuilder() {
             ) : (
               <>
                 {/* Build Pipeline */}
-                <BuildPipeline progress={agentDef.progress} />
+                <BuildPipeline progress={agentDef.progress} agentDef={agentDef} availableSkills={availableSkills} />
 
                 {/* Metadata Card — Premium */}
                 {agentDef.metadata.name && (
@@ -1605,7 +2077,7 @@ export default function AgentBuilder() {
                       {saving ? "Creating..." : "Test in Sandbox"}
                     </button>
                     <a
-                      href="https://calendly.com/gaigentic/demo"
+                      href="https://calendly.com/krishnagai"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex-1 flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold bg-gradient-to-r from-cta to-amber-500 text-white hover:brightness-110 shadow-sm transition-all"
@@ -1641,6 +2113,15 @@ export default function AgentBuilder() {
               )}
             </div>
           )}
+        </div>
+
+        {/* ═══ RIGHT: Audit Whiteboard ═══ */}
+        <div className="hidden xl:flex flex-col w-[30%] rounded-xl border border-ink-200 bg-gradient-to-b from-white to-ink-25 overflow-hidden">
+          <AuditWhiteboard
+            entries={auditLog}
+            agentDef={agentDef}
+            onDownload={handleDownloadAudit}
+          />
         </div>
       </div>
     </PageTransition>
