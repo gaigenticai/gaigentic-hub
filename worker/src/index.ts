@@ -14,6 +14,9 @@ import healthRoutes from "./routes/health";
 import feedbackRoutes from "./routes/feedback";
 import documentRoutes from "./routes/documents";
 import builderRoutes from "./routes/builder";
+import analyticsRoutes from "./routes/analytics";
+import webhookRoutes from "./routes/webhooks";
+import experimentRoutes from "./routes/experiments";
 
 // External API imports
 import { hashApiKey } from "./routes/apikeys";
@@ -76,6 +79,9 @@ app.route("/feedback", feedbackRoutes);
 app.route("/health", healthRoutes);
 app.route("/documents", documentRoutes);
 app.route("/builder", builderRoutes);
+app.route("/analytics", analyticsRoutes);
+app.route("/webhooks", webhookRoutes);
+app.route("/experiments", experimentRoutes);
 
 // ==========================================
 // Chat proxy: send message to Krishna via Chaosbird

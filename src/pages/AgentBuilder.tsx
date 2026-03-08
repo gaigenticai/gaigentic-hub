@@ -29,6 +29,10 @@ import {
   Lock,
   X,
   Info,
+  Zap,
+  Crown,
+  ExternalLink,
+  Calendar,
 } from "lucide-react";
 import PageTransition from "../components/PageTransition";
 import DemoBanner from "../components/DemoBanner";
@@ -229,6 +233,126 @@ const STARTER_PROMPTS = [
   "I want a tax compliance agent for Indian freelancers",
   "Create an invoice reconciliation agent for accounts payable",
 ];
+
+/* ══════════════════════════════════════════
+   Build Pipeline — animated stage indicator
+   ══════════════════════════════════════════ */
+
+const BUILD_STAGES = [
+  { key: "intent", label: "Intent", icon: Target, threshold: 15 },
+  { key: "skills", label: "Skills", icon: Sparkles, threshold: 35 },
+  { key: "prompts", label: "Prompts", icon: Brain, threshold: 55 },
+  { key: "tools", label: "Tools", icon: Wrench, threshold: 70 },
+  { key: "guardrails", label: "Guards", icon: Shield, threshold: 85 },
+  { key: "deploy", label: "Ready", icon: Rocket, threshold: 95 },
+];
+
+function BuildPipeline({ progress }: { progress: number }) {
+  return (
+    <div className="rounded-xl bg-white border border-ink-100 p-4 shadow-premium-sm">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[10px] font-semibold text-ink-500 uppercase tracking-wider">Build Pipeline</span>
+        <span className="text-xs font-bold tabular-nums text-cta">{progress}%</span>
+      </div>
+      <div className="flex items-center gap-0">
+        {BUILD_STAGES.map((stage, i) => {
+          const Icon = stage.icon;
+          const isComplete = progress >= stage.threshold;
+          const isActive = !isComplete && (i === 0 || progress >= BUILD_STAGES[i - 1].threshold);
+          const isNext = !isComplete && !isActive;
+
+          return (
+            <div key={stage.key} className="flex items-center flex-1 last:flex-none">
+              {/* Stage node */}
+              <div className="flex flex-col items-center gap-1.5 relative">
+                <motion.div
+                  initial={{ scale: 0.8 }}
+                  animate={{
+                    scale: isActive ? [1, 1.15, 1] : 1,
+                    boxShadow: isActive ? "0 0 12px rgba(255,122,0,0.4)" : "none",
+                  }}
+                  transition={isActive ? { duration: 1.5, repeat: Infinity, ease: "easeInOut" } : { duration: 0.3 }}
+                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all duration-500 ${
+                    isComplete
+                      ? "bg-signal-green border-signal-green"
+                      : isActive
+                        ? "bg-cta border-cta"
+                        : "bg-ink-50 border-ink-200"
+                  }`}
+                >
+                  {isComplete ? (
+                    <Check className="h-3.5 w-3.5 text-white" />
+                  ) : (
+                    <Icon className={`h-3.5 w-3.5 ${isActive ? "text-white" : "text-ink-300"}`} />
+                  )}
+                </motion.div>
+                <span
+                  className={`text-[9px] font-semibold tracking-wide transition-colors duration-300 ${
+                    isComplete ? "text-signal-green" : isActive ? "text-cta" : "text-ink-300"
+                  }`}
+                >
+                  {stage.label}
+                </span>
+              </div>
+              {/* Connector line */}
+              {i < BUILD_STAGES.length - 1 && (
+                <div className="flex-1 h-0.5 mx-1 rounded-full bg-ink-100 overflow-hidden relative -mt-5">
+                  <motion.div
+                    className="absolute inset-y-0 left-0 rounded-full bg-signal-green"
+                    initial={{ width: "0%" }}
+                    animate={{
+                      width: isComplete ? "100%" : isActive ? "50%" : "0%",
+                    }}
+                    transition={{ duration: 0.6, ease: "easeOut" }}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   Confetti — celebration on completion
+   ══════════════════════════════════════════ */
+
+const CONFETTI_COLORS = ["#FF7A00", "#0052CC", "#22C55E", "#8B5CF6", "#F43F5E", "#EAB308", "#06B6D4"];
+
+function Confetti({ show }: { show: boolean }) {
+  if (!show) return null;
+
+  const particles = Array.from({ length: 50 }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    delay: Math.random() * 0.8,
+    duration: 1.5 + Math.random() * 2,
+    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    size: 4 + Math.random() * 6,
+    rotation: Math.random() * 720,
+  }));
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none z-50">
+      {particles.map((p) => (
+        <motion.div
+          key={p.id}
+          initial={{ y: -20, x: `${p.x}%`, opacity: 1, rotate: 0 }}
+          animate={{ y: "110%", opacity: 0, rotate: p.rotation }}
+          transition={{ duration: p.duration, delay: p.delay, ease: "easeIn" }}
+          className="absolute rounded-sm"
+          style={{
+            width: p.size,
+            height: p.size * 0.6,
+            backgroundColor: p.color,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 /* ══════════════════════════════════════════
    Collapsible Section
@@ -511,6 +635,8 @@ export default function AgentBuilder() {
   const [chipSelections, setChipSelections] = useState<Record<string, string[]>>({});
   const [userProvider, setUserProvider] = useState(() => sessionStorage.getItem(SESSION_KEY_PROVIDER) || "openai");
   const [userApiKey, setUserApiKey] = useState(() => sessionStorage.getItem(SESSION_KEY_APIKEY) || "");
+  const [showConfetti, setShowConfetti] = useState(false);
+  const confettiShownRef = useRef(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -527,6 +653,15 @@ export default function AgentBuilder() {
     setUserApiKey("");
     sessionStorage.removeItem(SESSION_KEY_APIKEY);
   }, []);
+
+  // Confetti trigger on completion
+  useEffect(() => {
+    if ((agentDef.status === "complete" || agentDef.progress >= 95) && !confettiShownRef.current) {
+      confettiShownRef.current = true;
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 4000);
+    }
+  }, [agentDef.status, agentDef.progress]);
 
   // Load available skills from repository
   useEffect(() => {
@@ -691,6 +826,8 @@ export default function AgentBuilder() {
     setChipSelections({});
     setError(null);
     setIsStreaming(false);
+    setShowConfetti(false);
+    confettiShownRef.current = false;
   };
 
   const handleSave = async () => {
@@ -975,12 +1112,23 @@ export default function AgentBuilder() {
         </div>
 
         {/* ═══ RIGHT: Live Agent Preview ═══ */}
-        <div className="hidden lg:flex flex-col w-[52%] rounded-xl border border-ink-200 bg-ink-25 overflow-hidden">
+        <div className="hidden lg:flex flex-col w-[52%] rounded-xl border border-ink-200 bg-gradient-to-br from-ink-25 via-white to-ink-50 overflow-hidden relative">
+          {/* Confetti overlay */}
+          <Confetti show={showConfetti} />
+
           {/* Preview Header */}
-          <div className="bg-white border-b border-ink-100 px-4 py-3 flex items-center justify-between">
+          <div className="bg-white/80 backdrop-blur-sm border-b border-ink-100 px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FlaskConical className="h-4 w-4 text-ink-500" />
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-cta/10 to-purple-100">
+                <FlaskConical className="h-3.5 w-3.5 text-cta" />
+              </div>
               <span className="text-sm font-semibold text-ink-800">Agent Blueprint</span>
+              {isComplete && (
+                <span className="rounded-full bg-signal-green/10 text-signal-green text-[9px] font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1">
+                  <Zap className="h-2.5 w-2.5" />
+                  Ready
+                </span>
+              )}
             </div>
             {hasStarted && (
               <div className="flex items-center gap-3">
@@ -988,7 +1136,7 @@ export default function AgentBuilder() {
                   {statusConf.label}
                 </span>
                 <span className="text-[10px] font-mono tabular-nums text-ink-400 bg-ink-50 px-1.5 py-0.5 rounded">
-                  {filledSections}/{totalSections} sections
+                  {filledSections}/{totalSections}
                 </span>
               </div>
             )}
@@ -997,54 +1145,61 @@ export default function AgentBuilder() {
           {/* Preview Content */}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
             {!hasStarted ? (
-              /* Empty state */
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-ink-100 mb-4">
-                  <Wrench className="h-8 w-8 text-ink-300" />
-                </div>
-                <p className="text-sm font-medium text-ink-400">Your agent blueprint will appear here</p>
-                <p className="text-xs text-ink-300 mt-1 max-w-xs">
-                  Start a conversation on the left and watch the agent come to life in real-time.
+              /* Empty state — premium */
+              <div className="flex flex-col items-center justify-center h-full text-center px-6">
+                <motion.div
+                  animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-cta/10 via-purple-50 to-cobalt/10 border border-ink-100 mb-5 shadow-premium-sm"
+                >
+                  <Wand2 className="h-9 w-9 text-cta" />
+                </motion.div>
+                <h3 className="text-base font-semibold text-ink-800 font-headline">Your agent blueprint will appear here</h3>
+                <p className="text-xs text-ink-400 mt-2 max-w-xs leading-relaxed">
+                  Start a conversation and watch skills, prompts, tools, and guardrails assemble in real-time.
                 </p>
+                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                  {BUILD_STAGES.map((s) => {
+                    const Icon = s.icon;
+                    return (
+                      <div key={s.key} className="flex items-center gap-1 rounded-full bg-ink-50 border border-ink-100 px-2.5 py-1">
+                        <Icon className="h-3 w-3 text-ink-300" />
+                        <span className="text-[9px] font-medium text-ink-400">{s.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <>
-                {/* Progress bar */}
-                <div className="rounded-lg bg-white border border-ink-100 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-semibold text-ink-500 uppercase tracking-wider">Build Progress</span>
-                    <span className="text-xs font-bold tabular-nums" style={{ color: agentDef.metadata.color || "#3B82F6" }}>
-                      {agentDef.progress}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-ink-100 rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full"
-                      style={{ backgroundColor: agentDef.metadata.color || "#3B82F6" }}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${agentDef.progress}%` }}
-                      transition={{ duration: 0.5, ease: "easeOut" }}
-                    />
-                  </div>
-                </div>
+                {/* Build Pipeline */}
+                <BuildPipeline progress={agentDef.progress} />
 
-                {/* Metadata Card */}
+                {/* Metadata Card — Premium */}
                 {agentDef.metadata.name && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="rounded-lg bg-white border border-ink-200 p-4 shadow-premium-sm"
+                    className="rounded-xl p-[1.5px] shadow-premium-sm"
+                    style={{
+                      background: `linear-gradient(135deg, ${agentDef.metadata.color || "#3B82F6"}40, ${agentDef.metadata.color || "#3B82F6"}15, ${agentDef.metadata.color || "#3B82F6"}40)`,
+                    }}
                   >
+                  <div className="rounded-[10px] bg-white p-4">
                     <div className="flex items-start gap-3">
                       {agentDef.metadata.icon && (
-                        <div
-                          className="flex h-11 w-11 items-center justify-center rounded-xl text-xl"
+                        <motion.div
+                          initial={{ rotate: -10, scale: 0 }}
+                          animate={{ rotate: 0, scale: 1 }}
+                          transition={{ type: "spring", stiffness: 200, damping: 12 }}
+                          className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl shadow-sm"
                           style={{
                             backgroundColor: (agentDef.metadata.color || "#3B82F6") + "18",
+                            border: `1px solid ${(agentDef.metadata.color || "#3B82F6")}25`,
                           }}
                         >
                           {agentDef.metadata.icon}
-                        </div>
+                        </motion.div>
                       )}
                       <div className="flex-1 min-w-0">
                         <h3 className="text-base font-semibold text-ink-900 font-headline">
@@ -1074,6 +1229,7 @@ export default function AgentBuilder() {
                         {agentDef.metadata.description}
                       </p>
                     )}
+                  </div>
                   </motion.div>
                 )}
 
@@ -1260,31 +1416,60 @@ export default function AgentBuilder() {
             )}
           </div>
 
-          {/* Preview Footer — Action Buttons */}
+          {/* Preview Footer — Enterprise Deploy Gate */}
           {hasStarted && (
-            <div className="border-t border-ink-100 bg-white p-3 flex items-center justify-between gap-3">
-              <div className="text-[10px] text-ink-400">
-                {isComplete
-                  ? "Agent definition is ready. Create it!"
-                  : "Keep chatting to build your agent."
-                }
-              </div>
-              <button
-                onClick={handleSave}
-                disabled={(!isComplete && agentDef.progress < 70) || saving || isStreaming}
-                className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
-                  isComplete
-                    ? "bg-signal-green text-white hover:brightness-110 shadow-sm"
-                    : "bg-ink-100 text-ink-400 cursor-not-allowed"
-                }`}
-              >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Rocket className="h-4 w-4" />
-                )}
-                {saving ? "Creating..." : "Create Agent"}
-              </button>
+            <div className="border-t border-ink-100 bg-white/90 backdrop-blur-sm p-3">
+              {isComplete ? (
+                <div className="space-y-3">
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSave}
+                      disabled={saving || isStreaming}
+                      className="flex-1 flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold bg-signal-green text-white hover:brightness-110 shadow-sm transition-all"
+                    >
+                      {saving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <FlaskConical className="h-4 w-4" />
+                      )}
+                      {saving ? "Creating..." : "Test in Sandbox"}
+                    </button>
+                    <a
+                      href="https://calendly.com/gaigentic/demo"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold bg-gradient-to-r from-cta to-amber-500 text-white hover:brightness-110 shadow-sm transition-all"
+                    >
+                      <Crown className="h-4 w-4" />
+                      Deploy to Production
+                      <ExternalLink className="h-3 w-3 opacity-60" />
+                    </a>
+                  </div>
+                  {/* Enterprise features teaser */}
+                  <div className="flex items-center gap-2 rounded-lg bg-ink-50 border border-ink-100 px-3 py-2">
+                    <Calendar className="h-3.5 w-3.5 text-cobalt shrink-0" />
+                    <p className="text-[10px] text-ink-500 leading-relaxed">
+                      <span className="font-semibold text-ink-700">Production deployment includes:</span>
+                      {" "}SLA guarantee, SSO/SAML, audit log export, webhooks, dedicated support, and custom domain.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] text-ink-400">
+                    Keep chatting to build your agent.
+                  </div>
+                  <button
+                    onClick={handleSave}
+                    disabled={agentDef.progress < 70 || saving || isStreaming}
+                    className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold bg-ink-100 text-ink-400 cursor-not-allowed transition-all"
+                  >
+                    <Rocket className="h-4 w-4" />
+                    Create Agent
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
