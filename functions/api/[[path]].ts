@@ -15,8 +15,22 @@ export const onRequest: PagesFunction = async (context) => {
     body: context.request.method !== "GET" ? context.request.body : undefined,
   });
 
-  const res = new Response(response.body, response);
-  res.headers.delete("X-Powered-By");
-  res.headers.set("Server", "GaiGentic Hub");
-  return res;
+  // For SSE streams, pass through the body directly with correct headers
+  const resHeaders = new Headers(response.headers);
+  resHeaders.delete("X-Powered-By");
+  resHeaders.set("Server", "GaiGentic Hub");
+
+  const isSSE = response.headers.get("content-type")?.includes("text/event-stream");
+  if (isSSE) {
+    resHeaders.set("Cache-Control", "no-cache");
+    resHeaders.set("Connection", "keep-alive");
+    resHeaders.delete("content-encoding");
+    resHeaders.delete("content-length");
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: resHeaders,
+  });
 };

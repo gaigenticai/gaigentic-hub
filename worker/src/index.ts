@@ -40,7 +40,11 @@ app.use(
   cors({
     origin: (origin, c) => {
       const allowedOrigins = (c.env.ALLOWED_ORIGINS || DEFAULT_ORIGINS).split(",");
-      return allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+      // Allow exact matches + any *.gaigentic-hub.pages.dev preview deploys
+      if (allowedOrigins.includes(origin) || /\.gaigentic-hub\.pages\.dev$/.test(origin)) {
+        return origin;
+      }
+      return allowedOrigins[0];
     },
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
