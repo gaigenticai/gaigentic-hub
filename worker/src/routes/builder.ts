@@ -141,6 +141,8 @@ builder.post("/chat", async (c) => {
     })),
   ];
 
+  console.log(`[builder/chat] provider=${providerName}, model=${model}, messages=${llmMessages.length}, hasApiKey=${!!providerApiKey}`);
+
   try {
     const stream = await provider.stream({
       model,
@@ -158,6 +160,7 @@ builder.post("/chat", async (c) => {
     });
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : "Builder chat failed";
+    console.error(`[builder/chat] ERROR: ${errorMsg}`);
     return c.json({ error: errorMsg }, 500);
   }
 });
