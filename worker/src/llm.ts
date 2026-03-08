@@ -445,20 +445,45 @@ class WorkersAIProvider implements LLMProvider {
   }
 
   async stream(params: ChatParams): Promise<ReadableStream> {
-    const response = await this.chat(params);
-    const encoder = new TextEncoder();
+    const aiStream = (await this.ai.run(WORKERS_AI_MODEL, {
+      messages: params.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+      max_tokens: params.max_tokens || 2048,
+      temperature: params.temperature ?? 0.7,
+      stream: true,
+    })) as ReadableStream;
 
-    return new ReadableStream({
-      start(controller) {
-        controller.enqueue(
-          encoder.encode(`event: token\ndata: ${JSON.stringify({ text: response.content })}\n\n`),
-        );
+    const encoder = new TextEncoder();
+    const transformer = new TransformStream({
+      transform(chunk, controller) {
+        // Workers AI stream returns "data: {\"response\":\"token\"}\n\n" chunks
+        const text = new TextDecoder().decode(chunk);
+        const lines = text.split("\n");
+        for (const line of lines) {
+          if (line.startsWith("data: ") && !line.includes("[DONE]")) {
+            try {
+              const parsed = JSON.parse(line.slice(6));
+              if (parsed.response) {
+                controller.enqueue(
+                  encoder.encode(`event: token\ndata: ${JSON.stringify({ text: parsed.response })}\n\n`),
+                );
+              }
+            } catch {
+              // Skip malformed chunks
+            }
+          }
+        }
+      },
+      flush(controller) {
         controller.enqueue(
           encoder.encode(`event: done\ndata: ${JSON.stringify({ provider: "workers-ai", model: WORKERS_AI_MODEL })}\n\n`),
         );
-        controller.close();
       },
     });
+
+    return aiStream.pipeThrough(transformer);
   }
 }
 
@@ -531,6 +556,11 @@ export function getDefaultProvider(env: Env): LLMProvider {
 }
 
 export function getFallbackProvider(env: Env): LLMProvider {
+  return new WorkersAIProvider(env.AI);
+}
+
+/** Builder always uses Workers AI (Llama 3.3 70B) — reliable structured output */
+export function getBuilderProvider(env: Env): LLMProvider {
   return new WorkersAIProvider(env.AI);
 }
 

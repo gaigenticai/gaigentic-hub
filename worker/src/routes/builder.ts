@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Env, LlmConfigRow } from "../types";
 import { getSessionUser } from "../session";
 import { checkRateLimit } from "../rateLimit";
-import { getDefaultProvider, createProvider, getDefaultModel } from "../llm";
+import { getBuilderProvider, createProvider, getDefaultModel } from "../llm";
 import { decrypt } from "../encryption";
 import { buildBuilderPrompt } from "../builderPrompt";
 import type { SkillSummary } from "../builderPrompt";
@@ -102,30 +102,31 @@ builder.post("/chat", async (c) => {
     required_tools: JSON.parse(s.required_tools || "[]"),
   }));
 
-  // Resolve LLM provider
-  let providerName = body.provider || c.env.DEFAULT_LLM_PROVIDER;
+  // Resolve LLM provider — Builder defaults to Workers AI (Llama 3.3 70B)
+  // for reliable structured JSON output. BYOK users can override.
+  let providerName = body.provider || "workers-ai";
   let providerApiKey = body.user_api_key || "";
 
-  if (!providerApiKey) {
+  if (providerApiKey) {
+    // User provided their own key — use their chosen provider
+    providerName = body.provider || "openai";
+  } else if (body.provider && body.provider !== "workers-ai") {
+    // User selected a non-default provider — check for saved key
     const config = await c.env.DB.prepare(
-      "SELECT * FROM llm_configs WHERE user_id = ? AND (provider = ? OR is_default = 1) ORDER BY CASE WHEN provider = ? THEN 0 ELSE 1 END LIMIT 1",
+      "SELECT * FROM llm_configs WHERE user_id = ? AND provider = ? LIMIT 1",
     )
-      .bind(user.id, providerName, providerName)
+      .bind(user.id, body.provider)
       .first<LlmConfigRow>();
 
     if (config) {
       providerApiKey = await decrypt(config.api_key_encrypted, c.env.ENCRYPTION_KEY);
-      providerName = config.provider;
+      providerName = body.provider;
     }
   }
 
   const provider = providerApiKey
     ? createProvider(providerName, providerApiKey, c.env)
-    : getDefaultProvider(c.env);
-
-  if (!providerApiKey) {
-    providerName = "zai";
-  }
+    : getBuilderProvider(c.env);
 
   const model = getDefaultModel(providerName);
 
@@ -206,27 +207,13 @@ JSON template:
   // Only send last 6 messages to keep context small
   const recentMessages = body.messages.slice(-6);
 
-  // Resolve provider
-  let providerName = body.provider || c.env.DEFAULT_LLM_PROVIDER;
-  let providerApiKey = body.user_api_key || "";
-
-  if (!providerApiKey) {
-    const user = await c.env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first<{ id: string }>();
-    if (user) {
-      const config = await c.env.DB.prepare(
-        "SELECT * FROM llm_configs WHERE user_id = ? AND (provider = ? OR is_default = 1) ORDER BY CASE WHEN provider = ? THEN 0 ELSE 1 END LIMIT 1",
-      ).bind(user.id, providerName, providerName).first<LlmConfigRow>();
-      if (config) {
-        providerApiKey = await decrypt(config.api_key_encrypted, c.env.ENCRYPTION_KEY);
-        providerName = config.provider;
-      }
-    }
-  }
+  // Extract always uses Workers AI — fast, reliable, structured output
+  const providerApiKey = body.user_api_key || "";
+  const providerName = providerApiKey ? (body.provider || "openai") : "workers-ai";
 
   const provider = providerApiKey
     ? createProvider(providerName, providerApiKey, c.env)
-    : getDefaultProvider(c.env);
-  if (!providerApiKey) providerName = "zai";
+    : getBuilderProvider(c.env);
 
   try {
     const stream = await provider.stream({
