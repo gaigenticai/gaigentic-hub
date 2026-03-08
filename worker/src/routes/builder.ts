@@ -319,7 +319,15 @@ builder.post("/save", async (c) => {
     return c.json({ error: "Agent definition is too incomplete to save. Continue building in the chat." }, 400);
   }
 
-  // 5. Insert the agent
+  // 5. Normalize capabilities — LLM sometimes sends plain strings instead of objects
+  const normalizedCapabilities = (body.capabilities || []).map(
+    (cap: { icon: string; title: string; description: string } | string) =>
+      typeof cap === "string"
+        ? { icon: "Zap", title: cap, description: "" }
+        : cap
+  );
+
+  // 6. Insert the agent
   const agentId = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
 
   await c.env.DB.prepare(
@@ -338,13 +346,13 @@ builder.post("/save", async (c) => {
       body.sample_input ? JSON.stringify(body.sample_input) : "{}",
       systemPrompt,
       JSON.stringify(body.guardrails_config),
-      JSON.stringify(body.capabilities),
+      JSON.stringify(normalizedCapabilities),
       JSON.stringify(body.jurisdictions),
       JSON.stringify(body.tools),
     )
     .run();
 
-  // 6. Link skills to agent + increment reuse_count
+  // 7. Link skills to agent + increment reuse_count
   for (const skillId of allSkillIds) {
     await c.env.DB.prepare(
       "INSERT OR IGNORE INTO agent_skills (agent_id, skill_id) VALUES (?, ?)",

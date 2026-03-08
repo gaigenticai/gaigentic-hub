@@ -42,7 +42,13 @@ export default function CapabilityGrid({ capabilities, agentColor }: Props) {
 
   let items: AgentCapability[] = [];
   try {
-    items = JSON.parse(capabilities);
+    const parsed = JSON.parse(capabilities);
+    // Handle both object arrays and plain string arrays (legacy/LLM fallback)
+    items = parsed.map((cap: AgentCapability | string) =>
+      typeof cap === "string"
+        ? { icon: "Zap", title: cap, description: "" }
+        : cap
+    );
   } catch {
     return null;
   }

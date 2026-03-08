@@ -199,7 +199,7 @@ In EVERY response, include BOTH:
   },
   "tools": ["auto-populated-from-skills"],
   "sample_input": null,
-  "capabilities": [],
+  "capabilities": [{"icon": "Shield", "title": "Sanctions Screening", "description": "Cross-references entities against OFAC, UN, and EU sanctions lists in real time."}],
   "jurisdictions": ["US"],
   "guardrails_config": {"max_tokens": 4096, "temperature": 0.3},
   "quick_replies": [
@@ -243,6 +243,7 @@ CRITICAL: The AGENT_UPDATE block must be valid JSON. Use null for unfilled field
 CRITICAL: The "tools" array should be the union of all required_tools from selected skills.
 CRITICAL: When creating new_skills, include the full skill object with prompt_template.
 CRITICAL: The slug must be lowercase, hyphenated, no special characters.
+CRITICAL: "capabilities" MUST be an array of objects with {icon, title, description}. Icon must be a PascalCase Lucide icon name (e.g. "Shield", "Calculator", "Search", "FileText", "Brain", "Target", "Globe", "BarChart3", "TrendingUp", "Receipt", "HeartPulse", "Zap", "Tag"). NEVER use plain strings. Always include 3-5 capabilities.
 CRITICAL: Output the |||AGENT_UPDATE||| block EARLY in your response, right after 1-3 sentences of conversation. Do NOT put it at the end after a long prose explanation — you may run out of tokens.
 CRITICAL: NEVER describe the agent as text AND as JSON. The JSON block IS the description. Your text should only say things like "I've updated the agent definition below" or "Here's what I've configured so far".
 </output_format>
