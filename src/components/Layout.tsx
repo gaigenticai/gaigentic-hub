@@ -157,7 +157,11 @@ export default function Layout() {
       </header>
 
       {/* Content */}
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <main className={
+        location.pathname === "/builder"
+          ? "px-4 py-4 sm:px-5"
+          : "mx-auto max-w-7xl px-4 py-8 sm:px-6"
+      }>
         <Outlet />
       </main>
     </div>

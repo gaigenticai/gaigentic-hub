@@ -1545,7 +1545,7 @@ export default function AgentBuilder() {
       <DemoBanner />
 
       {/* Header + BYOK — compact single row */}
-      <div className="mb-3 flex items-center gap-4">
+      <div className="mb-2 flex items-center gap-4">
         <div className="flex items-center gap-2 shrink-0">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cta to-amber-500">
             <Wand2 className="h-3.5 w-3.5 text-white" />
@@ -1573,7 +1573,7 @@ export default function AgentBuilder() {
       </div>
 
       {/* ── Three-Column Layout ── */}
-      <div className="flex gap-3 h-[calc(100vh-10rem)] min-h-[500px]">
+      <div className="flex gap-3 h-[calc(100vh-8rem)] min-h-[500px]">
 
         {/* ═══ LEFT: Chat Panel ═══ */}
         <div className="flex flex-col w-full lg:w-[30%] rounded-xl border border-ink-200 bg-white overflow-hidden">
@@ -1678,7 +1678,14 @@ export default function AgentBuilder() {
               </div>
             )}
 
-            {/* Quick Reply Chips — now rendered inline inside the last assistant message */}
+            {/* Quick reply chips — always show below last assistant message as reliable fallback */}
+            {!isStreaming && agentDef.quick_replies.length > 0 && messages.length > 0 && messages[messages.length - 1]?.role === "assistant" && (
+              <QuickReplies
+                replies={agentDef.quick_replies}
+                selections={chipSelections}
+                onToggle={handleChipToggle}
+              />
+            )}
 
             {/* Error */}
             {error && (
