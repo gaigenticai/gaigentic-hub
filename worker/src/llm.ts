@@ -135,7 +135,7 @@ class OpenAIProvider implements LLMProvider {
         Authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify({
-        model: params.model || "gpt-4o-mini",
+        model: params.model || "gpt-4.1-mini",
         messages: params.messages,
         max_tokens: params.max_tokens || 2048,
         temperature: params.temperature ?? 0.7,
@@ -158,7 +158,7 @@ class OpenAIProvider implements LLMProvider {
         input_tokens: data.usage?.prompt_tokens || 0,
         output_tokens: data.usage?.completion_tokens || 0,
       },
-      model: params.model || "gpt-4o-mini",
+      model: params.model || "gpt-4.1-mini",
       provider: "openai",
     };
   }
@@ -171,7 +171,7 @@ class OpenAIProvider implements LLMProvider {
         Authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify({
-        model: params.model || "gpt-4o-mini",
+        model: params.model || "gpt-4.1-mini",
         messages: params.messages,
         max_tokens: params.max_tokens || 2048,
         temperature: params.temperature ?? 0.7,
@@ -184,7 +184,7 @@ class OpenAIProvider implements LLMProvider {
       throw new Error(`OpenAI stream error (${res.status}): ${err}`);
     }
 
-    return transformSSEStream(res.body!, "openai", params.model || "gpt-4o-mini");
+    return transformSSEStream(res.body!, "openai", params.model || "gpt-4.1-mini");
   }
 }
 
@@ -208,7 +208,7 @@ class AnthropicProvider implements LLMProvider {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: params.model || "claude-sonnet-4-20250514",
+        model: params.model || "claude-sonnet-4-6-20250219",
         max_tokens: params.max_tokens || 2048,
         ...(systemMsg ? { system: systemMsg.content } : {}),
         messages: nonSystemMsgs,
@@ -231,7 +231,7 @@ class AnthropicProvider implements LLMProvider {
         input_tokens: data.usage?.input_tokens || 0,
         output_tokens: data.usage?.output_tokens || 0,
       },
-      model: params.model || "claude-sonnet-4-20250514",
+      model: params.model || "claude-sonnet-4-6-20250219",
       provider: "anthropic",
     };
   }
@@ -248,7 +248,7 @@ class AnthropicProvider implements LLMProvider {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: params.model || "claude-sonnet-4-20250514",
+        model: params.model || "claude-sonnet-4-6-20250219",
         max_tokens: params.max_tokens || 2048,
         ...(systemMsg ? { system: systemMsg.content } : {}),
         messages: nonSystemMsgs,
@@ -263,7 +263,7 @@ class AnthropicProvider implements LLMProvider {
 
     return transformAnthropicStream(
       res.body!,
-      params.model || "claude-sonnet-4-20250514",
+      params.model || "claude-sonnet-4-6-20250219",
     );
   }
 }
@@ -567,9 +567,9 @@ export function getBuilderProvider(env: Env): LLMProvider {
 export function getDefaultModel(provider: string): string {
   switch (provider) {
     case "openai":
-      return "gpt-4o-mini";
+      return "gpt-4.1-mini";
     case "anthropic":
-      return "claude-sonnet-4-20250514";
+      return "claude-sonnet-4-6-20250219";
     case "workers-ai":
       return WORKERS_AI_MODEL;
     case "zai":
