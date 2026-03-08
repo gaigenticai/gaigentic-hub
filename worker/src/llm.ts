@@ -420,7 +420,7 @@ function transformAnthropicStream(
 // Cloudflare Workers AI Provider (fallback)
 // ==========================================
 
-const WORKERS_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const WORKERS_AI_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
 
 class WorkersAIProvider implements LLMProvider {
   name = "workers-ai";
