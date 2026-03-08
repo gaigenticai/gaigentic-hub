@@ -6,8 +6,23 @@ import { getDefaultProvider, createProvider, getDefaultModel } from "../llm";
 import { decrypt } from "../encryption";
 import { buildBuilderPrompt } from "../builderPrompt";
 import type { SkillSummary } from "../builderPrompt";
+import { getAllTools } from "../tools/registry";
 
 const builder = new Hono<{ Bindings: Env }>();
+
+// GET /builder/tools — List all platform tools with metadata
+builder.get("/tools", async (c) => {
+  const tools = getAllTools().map((t) => ({
+    name: t.name,
+    description: t.description,
+    category: t.category,
+    stepType: t.stepType,
+    parameters: Object.fromEntries(
+      Object.entries(t.parameters).map(([k, v]) => [k, { type: v.type, description: v.description }])
+    ),
+  }));
+  return c.json({ tools });
+});
 
 // GET /builder/skills — List all available skills
 builder.get("/skills", async (c) => {

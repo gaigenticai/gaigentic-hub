@@ -216,24 +216,18 @@ const SECTION_CONFIG: Record<string, { label: string; icon: typeof Brain; color:
   guardrails: { label: "Guardrails", icon: Shield, color: "text-red-600", bg: "bg-red-50" },
 };
 
-const TOOL_LABELS: Record<string, string> = {
-  rag_query: "Knowledge Base",
-  calculate: "Calculator",
-  data_validation: "Data Validation",
-  document_analysis: "Document Analysis",
-  regulatory_lookup: "Regulatory Lookup",
-  credit_assessment: "Credit Assessment",
-  collections_scoring: "Collections",
-  escalate_to_agent: "Escalation",
-  verify_us_entity: "Entity Verification",
-  sanctions_screener: "Sanctions Screen",
-  burner_email_detector: "Email Check",
-  bin_iin_lookup: "BIN/IIN Lookup",
-  ecfr_lookup: "eCFR Lookup",
-  macroeconomic_indicator: "Macro Data",
-  amortization_restructurer: "Amortization",
-  rss_news_parser: "News Parser",
-};
+/** Tool metadata — fetched from backend at startup, NOT hardcoded */
+interface ToolMeta {
+  name: string;
+  description: string;
+  category: string;
+  stepType: string;
+}
+
+/** Fallback display name (only used if backend hasn't loaded yet) */
+function toolDisplayName(name: string): string {
+  return name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 const STATUS_CONFIG = {
   gathering: { label: "Gathering Intent", color: "text-blue-600", bg: "bg-blue-500" },
@@ -509,10 +503,12 @@ function BuildPipeline({
   progress,
   agentDef,
   availableSkills,
+  availableTools,
 }: {
   progress: number;
   agentDef: AgentDefinition;
   availableSkills: SkillInfo[];
+  availableTools: ToolMeta[];
 }) {
   const [expandedStage, setExpandedStage] = useState<string | null>(null);
 
@@ -548,10 +544,13 @@ function BuildPipeline({
         return items.length > 0 ? { title: "System Prompt", items } : null;
       }
       case "tools": {
-        const items = agentDef.tools.map((t) => ({
-          label: "tool",
-          value: TOOL_LABELS[t] || t,
-        }));
+        const items = agentDef.tools.map((t) => {
+          const meta = availableTools.find((m) => m.name === t);
+          return {
+            label: meta ? toolDisplayName(meta.name) : toolDisplayName(t),
+            value: meta?.description || meta?.category || t,
+          };
+        });
         return items.length > 0 ? { title: "Active Tools", items } : null;
       }
       case "guardrails": {
@@ -1273,6 +1272,7 @@ export default function AgentBuilder() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [availableSkills, setAvailableSkills] = useState<SkillInfo[]>([]);
+  const [availableTools, setAvailableTools] = useState<ToolMeta[]>([]);
   const [chipSelections, setChipSelections] = useState<Record<string, string[]>>({});
   const [userProvider, setUserProvider] = useState(() => sessionStorage.getItem(SESSION_KEY_PROVIDER) || "openai");
   const [userApiKey, setUserApiKey] = useState(() => sessionStorage.getItem(SESSION_KEY_APIKEY) || "");
@@ -1295,6 +1295,26 @@ export default function AgentBuilder() {
     };
     setAuditLog((prev) => [...prev, entry]);
   }, []);
+
+  // Dynamic lookup helpers — always use fetched data, never hardcoded
+  const getToolInfo = useCallback((name: string) => {
+    const tool = availableTools.find((t) => t.name === name);
+    return {
+      label: tool ? toolDisplayName(tool.name) : toolDisplayName(name),
+      description: tool?.description || "",
+      category: tool?.category || "",
+    };
+  }, [availableTools]);
+
+  const getSkillInfo = useCallback((slug: string) => {
+    const skill = availableSkills.find((s) => s.slug === slug);
+    return {
+      name: skill?.name || slug,
+      description: skill?.description || "",
+      category: skill?.category || "",
+      toolCount: skill?.required_tools?.length || 0,
+    };
+  }, [availableSkills]);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -1340,14 +1360,15 @@ export default function AgentBuilder() {
     // Skills added
     for (const slug of curr.skills) {
       if (!prev.skills.includes(slug)) {
-        addAudit("skill_added", "Skill selected", slug);
+        const info = getSkillInfo(slug);
+        addAudit("skill_added", info.name, info.description || `${info.category} skill — ${info.toolCount} tools`);
       }
     }
 
     // New skills created
     for (const ns of curr.new_skills || []) {
       if (!(prev.new_skills || []).find((p) => p.slug === ns.slug)) {
-        addAudit("skill_created", "New skill created", `${ns.name} (${ns.category})`);
+        addAudit("skill_created", `New: ${ns.name}`, ns.description || `${ns.category} — custom skill created for this agent`);
       }
     }
 
@@ -1363,7 +1384,8 @@ export default function AgentBuilder() {
     // Tools activated
     for (const tool of curr.tools) {
       if (!prev.tools.includes(tool)) {
-        addAudit("tool_activated", "Tool activated", TOOL_LABELS[tool] || tool);
+        const info = getToolInfo(tool);
+        addAudit("tool_activated", info.label, info.description || `${info.category} tool`);
       }
     }
 
@@ -1380,14 +1402,20 @@ export default function AgentBuilder() {
     }
 
     prevAgentDefRef.current = curr;
-  }, [agentDef, addAudit]);
+  }, [agentDef, addAudit, getToolInfo, getSkillInfo]);
 
-  // Load available skills from repository
+  // Load available skills and tools from backend
   useEffect(() => {
     fetch(`${API_BASE}/builder/skills`)
       .then((r) => r.json())
       .then((data: { skills?: SkillInfo[] }) => {
         if (data.skills) setAvailableSkills(data.skills);
+      })
+      .catch(() => {});
+    fetch(`${API_BASE}/builder/tools`)
+      .then((r) => r.json())
+      .then((data: { tools?: ToolMeta[] }) => {
+        if (data.tools) setAvailableTools(data.tools);
       })
       .catch(() => {});
   }, []);
@@ -1974,7 +2002,7 @@ export default function AgentBuilder() {
             ) : (
               <>
                 {/* Build Pipeline */}
-                <BuildPipeline progress={agentDef.progress} agentDef={agentDef} availableSkills={availableSkills} />
+                <BuildPipeline progress={agentDef.progress} agentDef={agentDef} availableSkills={availableSkills} availableTools={availableTools} />
 
                 {/* Metadata Card — Premium */}
                 {agentDef.metadata.name && (
@@ -2114,14 +2142,18 @@ export default function AgentBuilder() {
                   </p>
                   {agentDef.tools.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5">
-                      {agentDef.tools.map((tool) => (
-                        <span
-                          key={tool}
-                          className="inline-flex items-center gap-1 rounded-md bg-ink-50 text-ink-600 text-[10px] font-medium px-2 py-1 border border-ink-100"
-                        >
-                          {TOOL_LABELS[tool] || tool}
-                        </span>
-                      ))}
+                      {agentDef.tools.map((tool) => {
+                        const meta = availableTools.find((t) => t.name === tool);
+                        return (
+                          <span
+                            key={tool}
+                            className="inline-flex items-center gap-1 rounded-md bg-ink-50 text-ink-600 text-[10px] font-medium px-2 py-1 border border-ink-100"
+                            title={meta?.description || ""}
+                          >
+                            {meta ? toolDisplayName(meta.name) : toolDisplayName(tool)}
+                          </span>
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-[11px] text-ink-300 italic">Auto-populated when skills are selected</p>
