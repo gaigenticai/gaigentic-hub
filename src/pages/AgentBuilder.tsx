@@ -1766,15 +1766,6 @@ export default function AgentBuilder() {
               </div>
             )}
 
-            {/* Quick reply chips — always show below last assistant message as reliable fallback */}
-            {showQuickReplies && (
-              <QuickReplies
-                replies={effectiveQuickReplies}
-                selections={chipSelections}
-                onToggle={handleChipToggle}
-              />
-            )}
-
             {/* Error */}
             {error && (
               <div className="flex items-start gap-2 rounded-lg border border-signal-red/20 bg-signal-red-light px-3 py-2.5">
