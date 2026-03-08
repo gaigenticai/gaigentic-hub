@@ -161,6 +161,97 @@ builder.post("/chat", async (c) => {
   }
 });
 
+// POST /builder/extract — Dedicated endpoint to extract AGENT_UPDATE JSON from conversation
+// Uses a minimal system prompt focused ONLY on JSON extraction, not conversation
+builder.post("/extract", async (c) => {
+  const email = await getSessionUser(c);
+  if (!email) return c.json({ error: "Unauthorized" }, 401);
+
+  const body = await c.req.json<{
+    messages: Array<{ role: string; content: string }>;
+    provider?: string;
+    user_api_key?: string;
+  }>();
+
+  if (!body.messages?.length) return c.json({ error: "messages required" }, 400);
+
+  // Load skills for reference
+  const skillRows = await c.env.DB.prepare(
+    `SELECT slug, name, description, category FROM skills WHERE status = '${SKILL_STATUS.ACTIVE}' ORDER BY reuse_count DESC`,
+  ).all<{ slug: string; name: string; description: string; category: string }>();
+
+  const skillList = skillRows.results.map((s) => `- ${s.slug}: ${s.name} (${s.category})`).join("\n");
+
+  // Condensed extraction-only prompt — much smaller than the full builder prompt
+  const extractPrompt = `You are a JSON extraction assistant. Your ONLY job is to read the conversation below and output a single |||AGENT_UPDATE||| JSON block.
+
+Available skills from our repository:
+${skillList}
+
+Rules:
+- Output ONLY 1-2 sentences of acknowledgment, then the |||AGENT_UPDATE||| JSON block
+- The JSON must be valid and complete
+- "capabilities" must be objects: [{"icon": "LucideIconName", "title": "...", "description": "..."}]. Use icons: Shield, Calculator, Search, FileText, Brain, Target, Globe, BarChart3, TrendingUp, Receipt, HeartPulse, Zap, Tag
+- Include 3-5 capabilities based on what the agent does
+- "skills" array: use slugs from the skill list above that match the agent's needs
+- "tools" array: union of tools needed (e.g. "calculate", "classify_risk", "generate_report", "web_search")
+- Fill ALL fields based on the conversation context. Do not leave fields null if the conversation discussed them.
+- status must be "building" or "complete"
+
+JSON template:
+|||AGENT_UPDATE|||
+{"metadata":{"name":"...","slug":"...","tagline":"...","description":"...","category":"...","icon":"emoji","color":"#hex"},"skills":[],"new_skills":[],"system_prompt_sections":{"agent_identity":"...","agent_objective":"...","domain_context":"...","scoring_methodology":null,"jurisdiction_knowledge":"...","visual_output_rules":null,"guardrails":"..."},"tools":[],"sample_input":null,"capabilities":[],"jurisdictions":[],"guardrails_config":{"max_tokens":4096,"temperature":0.3},"quick_replies":[],"status":"complete"}
+|||END_AGENT_UPDATE|||`;
+
+  // Only send last 6 messages to keep context small
+  const recentMessages = body.messages.slice(-6);
+
+  // Resolve provider
+  let providerName = body.provider || c.env.DEFAULT_LLM_PROVIDER;
+  let providerApiKey = body.user_api_key || "";
+
+  if (!providerApiKey) {
+    const user = await c.env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first<{ id: string }>();
+    if (user) {
+      const config = await c.env.DB.prepare(
+        "SELECT * FROM llm_configs WHERE user_id = ? AND (provider = ? OR is_default = 1) ORDER BY CASE WHEN provider = ? THEN 0 ELSE 1 END LIMIT 1",
+      ).bind(user.id, providerName, providerName).first<LlmConfigRow>();
+      if (config) {
+        providerApiKey = await decrypt(config.api_key_encrypted, c.env.ENCRYPTION_KEY);
+        providerName = config.provider;
+      }
+    }
+  }
+
+  const provider = providerApiKey
+    ? createProvider(providerName, providerApiKey, c.env)
+    : getDefaultProvider(c.env);
+  if (!providerApiKey) providerName = "zai";
+
+  try {
+    const stream = await provider.stream({
+      model: getDefaultModel(providerName),
+      messages: [
+        { role: "system" as const, content: extractPrompt },
+        ...recentMessages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+        { role: "user" as const, content: "Please output the |||AGENT_UPDATE||| JSON block now with the complete agent definition based on our conversation." },
+      ],
+      max_tokens: 4096,
+      temperature: 0.2,
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
+  } catch (err: unknown) {
+    return c.json({ error: err instanceof Error ? err.message : "Extract failed" }, 500);
+  }
+});
+
 // POST /builder/save — Save a completed agent + link skills + save new skills
 builder.post("/save", async (c) => {
   const email = await getSessionUser(c);

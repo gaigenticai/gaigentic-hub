@@ -1550,29 +1550,30 @@ export default function AgentBuilder() {
       setStreamingText("");
       addAudit("ai_response", "AI responded", displayText.slice(0, 80) + "...");
 
-      // Auto-retry: if the LLM responded but didn't include an AGENT_UPDATE block,
-      // and we're past the first exchange, send a nudge to get the JSON block
-      if (!agent && newMessages.length >= 3 && !fullText.includes(AGENT_UPDATE_OPEN)) {
-        const retryMsg = "Please output the |||AGENT_UPDATE||| JSON block now with the current agent definition. Keep your text to 1 sentence.";
-        const retryMessages: ChatMessage[] = [...newMessages, { role: "assistant", content: displayText }, { role: "user", content: retryMsg }];
-
-        // Don't show the retry message to user — just inject it silently
+      // Auto-retry: if LLM responded without AGENT_UPDATE block past the first exchange,
+      // use the dedicated /extract endpoint with a condensed prompt to get the JSON
+      if (!agent && newMessages.length >= 2 && !fullText.includes(AGENT_UPDATE_OPEN)) {
         setIsStreaming(true);
         setStreamingText("");
+        addAudit("system", "Auto-extracting", "LLM didn't output JSON block — retrying with extraction endpoint");
         try {
-          const retryRes = await fetch(`${API_BASE}/builder/chat`, {
+          const token = getSessionToken();
+          const extractRes = await fetch(`${API_BASE}/builder/extract`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
             credentials: "include",
             body: JSON.stringify({
-              messages: retryMessages.map((m) => ({ role: m.role, content: m.content })),
+              messages: [...newMessages, { role: "assistant", content: displayText }].map((m) => ({ role: m.role, content: m.content })),
               ...(userApiKey.trim() ? { provider: userProvider, user_api_key: userApiKey.trim() } : {}),
             }),
             signal: abortRef.current?.signal,
           });
 
-          if (retryRes.ok && retryRes.body) {
-            const retryReader = retryRes.body.getReader();
+          if (extractRes.ok && extractRes.body) {
+            const retryReader = extractRes.body.getReader();
             const retryDecoder = new TextDecoder();
             const retrySseParser = createSSEParser();
             let retryFull = "";
@@ -1601,8 +1602,10 @@ export default function AgentBuilder() {
             }
 
             const { chatText: retryChatText, agent: retryAgent } = extractAgentUpdate(retryFull);
-            if (retryAgent) setAgentDef(retryAgent);
-            // Append retry response to last assistant message (invisible to user)
+            if (retryAgent) {
+              setAgentDef(retryAgent);
+              addAudit("system", "Extraction succeeded", `Agent: ${retryAgent.metadata?.name || "unnamed"}`);
+            }
             if (retryChatText) {
               setMessages((prev) => {
                 const updated = [...prev];
