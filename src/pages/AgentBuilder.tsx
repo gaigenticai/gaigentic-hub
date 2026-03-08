@@ -150,6 +150,11 @@ const AGENT_UPDATE_OPEN = "|||AGENT_UPDATE|||";
 const AGENT_UPDATE_CLOSE = "|||END_AGENT_UPDATE|||";
 
 const API_BASE = "/api";
+// For SSE streaming, bypass the Pages Function proxy and call the Worker directly.
+// The proxy buffers responses which breaks Server-Sent Events.
+const STREAM_API_BASE = window.location.hostname === "localhost"
+  ? "/api"
+  : "https://gaigentic-hub-api.krishnagaigenticai.workers.dev";
 
 /* ══════════════════════════════════════════
    SSE Parser (reused pattern)
@@ -1478,7 +1483,7 @@ export default function AgentBuilder() {
 
     try {
       const token = getSessionToken();
-      const res = await fetch(`${API_BASE}/builder/chat`, {
+      const res = await fetch(`${STREAM_API_BASE}/builder/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1566,7 +1571,7 @@ export default function AgentBuilder() {
         addAudit("system", "Auto-extracting", "LLM didn't output JSON block — retrying with extraction endpoint");
         try {
           const token = getSessionToken();
-          const extractRes = await fetch(`${API_BASE}/builder/extract`, {
+          const extractRes = await fetch(`${STREAM_API_BASE}/builder/extract`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
