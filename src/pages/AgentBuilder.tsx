@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -1634,10 +1634,29 @@ export default function AgentBuilder() {
   const isComplete = agentDef.status === "complete" || agentDef.progress >= 90;
   const currentStreamChat = streamingText ? extractAgentUpdate(streamingText).chatText : "";
   const lastAssistantMsg = messages.length > 0 && messages[messages.length - 1]?.role === "assistant" ? messages[messages.length - 1].content : "";
+  // Collect labels already answered in previous user messages
+  // e.g. "Industry: Manufacturing" means "Industry" is answered
+  const answeredLabels = useMemo(() => {
+    const labels = new Set<string>();
+    for (const msg of messages) {
+      if (msg.role !== "user") continue;
+      // Match patterns like "Label: Value" or "Label : Value"
+      const labelMatches = msg.content.matchAll(/^([A-Za-z][A-Za-z /&]+?):\s/gm);
+      for (const m of labelMatches) {
+        labels.add(m[1].trim().toLowerCase());
+      }
+    }
+    return labels;
+  }, [messages]);
+
   // Use LLM-provided quick_replies if available, otherwise auto-detect from question lines
-  const effectiveQuickReplies = agentDef.quick_replies.length > 0
+  // Filter out already-answered question groups
+  const rawQuickReplies = agentDef.quick_replies.length > 0
     ? agentDef.quick_replies
     : (lastAssistantMsg ? autoDetectQuickReplies(lastAssistantMsg) : []);
+  const effectiveQuickReplies = rawQuickReplies.filter(
+    (qr) => !answeredLabels.has(qr.label.toLowerCase())
+  );
   const showQuickReplies = !isStreaming && effectiveQuickReplies.length > 0 && !!lastAssistantMsg;
 
   return (
