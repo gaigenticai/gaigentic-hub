@@ -268,6 +268,89 @@ function cleanMarkdown(text: string): string {
 }
 
 /* ══════════════════════════════════════════
+   Auto-detect question lines → generate chips
+   ══════════════════════════════════════════ */
+
+const QUESTION_OPTION_MAP: Record<string, string[]> = {
+  // Tax / Compliance
+  "tax": ["GST", "Income Tax", "TDS", "Advance Tax", "ITR Filing", "Tax Audit", "International Tax"],
+  "compliance": ["SOX", "GDPR", "AML/KYC", "RBI Guidelines", "SEC Rules", "PCI-DSS", "HIPAA"],
+  "regulation": ["US Federal", "EU Directives", "India (SEBI/RBI)", "UK FCA", "Multi-jurisdiction"],
+  // Users
+  "user": ["Freelancers", "Small Business Owners", "Accountants/CAs", "CFOs/Finance Teams", "Compliance Officers", "Individual Taxpayers"],
+  "audience": ["Freelancers", "Small Business Owners", "Accountants/CAs", "CFOs/Finance Teams", "Compliance Officers"],
+  // Domain
+  "area": ["Tax Filing", "Compliance Checks", "Document Verification", "Risk Scoring", "Reconciliation", "Reporting"],
+  "focus": ["Tax Filing", "Compliance Audit", "Document Verification", "Risk Assessment", "Reconciliation", "Reporting"],
+  "domain": ["Finance", "Banking", "Insurance", "Healthcare", "Legal", "Accounting", "E-commerce"],
+  "industry": ["Fintech", "Banking", "Insurance", "Healthcare", "Legal", "Accounting", "E-commerce"],
+  // Input
+  "input": ["JSON Data", "PDF Documents", "Images/Receipts", "CSV/Excel", "Free-text Queries", "API Webhooks"],
+  "data": ["JSON Data", "PDF Documents", "Images/Receipts", "CSV/Excel Files", "Bank Statements", "Invoices"],
+  "source": ["JSON API", "PDF Documents", "Bank Statements", "CSV/Excel", "Invoices", "Government Portals"],
+  "format": ["JSON", "PDF", "CSV/Excel", "Images", "Free Text", "XML"],
+  // Output
+  "output": ["Risk Scores", "Compliance Reports", "Recommendations", "Alerts", "Dashboards", "Audit Trail"],
+  "result": ["Risk Scores", "Reports", "Recommendations", "Alerts", "Visual Dashboards"],
+  "produce": ["Risk Scores", "Reports", "Recommendations", "Alerts", "Dashboards"],
+  // Jurisdiction
+  "jurisdiction": ["India", "US", "EU", "UK", "Global", "APAC"],
+  "country": ["India", "US", "EU", "UK", "Singapore", "Global"],
+  "region": ["India", "US", "EU", "UK", "Global", "APAC"],
+  // Priority
+  "priority": ["Critical — must have", "Important — should have", "Nice to have"],
+  "important": ["Critical", "Important", "Nice to have"],
+  // Sophistication / Level
+  "sophistication": ["Basic — single income", "Moderate — multiple sources", "Complex — business + investments", "Enterprise — multi-entity"],
+  "level": ["Basic", "Intermediate", "Advanced", "Enterprise"],
+  "complexity": ["Simple", "Moderate", "Complex", "Enterprise-grade"],
+  // Explainability
+  "explain": ["Every decision justified", "Key decisions explained", "Summary only"],
+  "audit": ["Full audit trail", "Key decisions only", "Summary report"],
+  // Scale
+  "volume": ["< 100/month", "100-1000/month", "1000-10000/month", "10000+/month"],
+  "scale": ["Small (< 100)", "Medium (100-1K)", "Large (1K-10K)", "Enterprise (10K+)"],
+};
+
+function autoDetectQuickReplies(messageText: string): QuickReply[] {
+  const cleaned = cleanMarkdown(messageText);
+  const lines = cleaned.split("\n");
+  const replies: QuickReply[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Must end with ? and be a short question line (not a sentence in a paragraph)
+    if (!trimmed.endsWith("?") || trimmed.length > 80 || trimmed.length < 8) continue;
+    // Skip if it's a long conversational question (contains too many words)
+    const wordCount = trimmed.split(/\s+/).length;
+    if (wordCount > 10) continue;
+
+    const label = trimmed.replace(/\?$/, "").trim();
+    const labelLower = label.toLowerCase();
+
+    // Find best matching options
+    let bestOptions: string[] | null = null;
+    let bestScore = 0;
+
+    for (const [keyword, options] of Object.entries(QUESTION_OPTION_MAP)) {
+      if (labelLower.includes(keyword)) {
+        const score = keyword.length;
+        if (score > bestScore) {
+          bestScore = score;
+          bestOptions = options;
+        }
+      }
+    }
+
+    if (bestOptions) {
+      replies.push({ label, options: bestOptions, multi: true });
+    }
+  }
+
+  return replies;
+}
+
+/* ══════════════════════════════════════════
    Message with inline chips
    ══════════════════════════════════════════ */
 
@@ -1538,7 +1621,12 @@ export default function AgentBuilder() {
   const hasStarted = messages.length > 0;
   const isComplete = agentDef.status === "complete" || agentDef.progress >= 90;
   const currentStreamChat = streamingText ? extractAgentUpdate(streamingText).chatText : "";
-  const showQuickReplies = !isStreaming && agentDef.quick_replies.length > 0 && messages.length > 0 && messages[messages.length - 1]?.role === "assistant";
+  const lastAssistantMsg = messages.length > 0 && messages[messages.length - 1]?.role === "assistant" ? messages[messages.length - 1].content : "";
+  // Use LLM-provided quick_replies if available, otherwise auto-detect from question lines
+  const effectiveQuickReplies = agentDef.quick_replies.length > 0
+    ? agentDef.quick_replies
+    : (lastAssistantMsg ? autoDetectQuickReplies(lastAssistantMsg) : []);
+  const showQuickReplies = !isStreaming && effectiveQuickReplies.length > 0 && !!lastAssistantMsg;
 
   return (
     <PageTransition>
@@ -1630,7 +1718,7 @@ export default function AgentBuilder() {
                     {hasInlineChips ? (
                       <MessageWithInlineChips
                         content={msg.content}
-                        replies={agentDef.quick_replies}
+                        replies={effectiveQuickReplies}
                         selections={chipSelections}
                         onToggle={handleChipToggle}
                       />
@@ -1679,9 +1767,9 @@ export default function AgentBuilder() {
             )}
 
             {/* Quick reply chips — always show below last assistant message as reliable fallback */}
-            {!isStreaming && agentDef.quick_replies.length > 0 && messages.length > 0 && messages[messages.length - 1]?.role === "assistant" && (
+            {showQuickReplies && (
               <QuickReplies
-                replies={agentDef.quick_replies}
+                replies={effectiveQuickReplies}
                 selections={chipSelections}
                 onToggle={handleChipToggle}
               />
