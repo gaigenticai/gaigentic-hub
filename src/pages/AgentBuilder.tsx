@@ -1546,6 +1546,14 @@ export default function AgentBuilder() {
       if (agent) setAgentDef(agent);
 
       const displayText = chatText || fullText;
+
+      // If we got nothing back at all, show an error
+      if (!displayText.trim()) {
+        setError("No response received. The AI provider may be unavailable — try again or switch providers.");
+        setIsStreaming(false);
+        return;
+      }
+
       setMessages((prev) => [...prev, { role: "assistant", content: displayText }]);
       setStreamingText("");
       addAudit("ai_response", "AI responded", displayText.slice(0, 80) + "...");
