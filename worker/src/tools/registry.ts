@@ -26,6 +26,8 @@ import { ecfrLookupTool } from "./ecfrLookup";
 import { macroeconomicIndicatorTool } from "./macroeconomicIndicator";
 import { amortizationRestructurerTool } from "./amortizationRestructurer";
 import { rssNewsParserTool } from "./rssNewsParser";
+import { webSearchTool } from "./webSearch";
+import { browseUrlTool } from "./browseUrl";
 
 const ALL_TOOLS: Record<string, ToolDefinition> = {
   rag_query: ragQueryTool,
@@ -44,6 +46,8 @@ const ALL_TOOLS: Record<string, ToolDefinition> = {
   macroeconomic_indicator: macroeconomicIndicatorTool,
   amortization_restructurer: amortizationRestructurerTool,
   rss_news_parser: rssNewsParserTool,
+  web_search: webSearchTool,
+  browse_url: browseUrlTool,
 };
 
 /**

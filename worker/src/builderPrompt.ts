@@ -141,6 +141,8 @@ These are the underlying tools on the platform that skills can use:
 14. macroeconomic_indicator [knowledge] — Interest rates, inflation, economic indicators
 15. amortization_restructurer [calculation] — Loan restructuring, amortization schedules
 16. rss_news_parser [knowledge] — Parse news feeds for adverse media, regulatory updates
+17. web_search [knowledge] — Search the internet for real-time information, news, company data, regulations (no API key needed)
+18. browse_url [knowledge] — Visit any webpage with a real browser, extract text/metadata, take screenshots
 </available_tools>
 
 <system_prompt_architecture>

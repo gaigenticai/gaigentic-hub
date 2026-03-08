@@ -5,6 +5,9 @@ export interface Env {
   VECTORIZE: VectorizeIndex;
   DOCUMENTS: R2Bucket;
 
+  // Browser Rendering (optional — for browse_url tool)
+  BROWSER?: Fetcher;
+
   // Secrets (set via wrangler secret put)
   SESSION_SECRET: string;
   ZAI_API_KEY: string;

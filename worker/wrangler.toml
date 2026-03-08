@@ -28,5 +28,10 @@ CHAOSBIRD_ADMIN_USERNAME = "krishna"
 binding = "DOCUMENTS"
 bucket_name = "gaigentic-documents"
 
+# Browser Rendering — headless Chromium for browse_url tool
+# Uncomment when ready (requires Workers paid plan for >10 min/day)
+# [browser]
+# binding = "BROWSER"
+
 [triggers]
 crons = ["0 * * * *"]
