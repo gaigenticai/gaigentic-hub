@@ -795,6 +795,7 @@ function AuditWhiteboard({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [downloadOpen, setDownloadOpen] = useState(false);
+  const [expandedEntry, setExpandedEntry] = useState<number | null>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -900,12 +901,23 @@ function AuditWhiteboard({
                       <IconComp className={`h-2.5 w-2.5 ${color}`} />
                     </div>
                     {/* Content */}
-                    <div className="flex-1 min-w-0 pb-2">
+                    <div
+                      className="flex-1 min-w-0 pb-2 cursor-pointer"
+                      onClick={() => setExpandedEntry(expandedEntry === entry.id ? null : entry.id)}
+                    >
                       <div className="flex items-baseline gap-1.5">
                         <span className={`text-[10px] font-semibold ${color}`}>{entry.title}</span>
                         <span className="text-[8px] font-mono text-ink-300 shrink-0">{timeStr(entry.timestamp)}</span>
                       </div>
-                      <p className="text-[10px] text-ink-500 leading-relaxed mt-0.5 break-words">{entry.detail}</p>
+                      {expandedEntry === entry.id ? (
+                        <p className="text-[10px] text-ink-600 leading-relaxed mt-0.5 break-words whitespace-pre-wrap bg-ink-50 rounded px-1.5 py-1 border border-ink-100">
+                          {entry.detail}
+                        </p>
+                      ) : (
+                        <p className="text-[10px] text-ink-500 leading-relaxed mt-0.5 break-words truncate">
+                          {entry.detail}
+                        </p>
+                      )}
                     </div>
                   </motion.div>
                 );
