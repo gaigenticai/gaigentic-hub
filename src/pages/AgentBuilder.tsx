@@ -235,6 +235,164 @@ const STARTER_PROMPTS = [
 ];
 
 /* ══════════════════════════════════════════
+   Markdown stripping — clean LLM artifacts
+   ══════════════════════════════════════════ */
+
+function cleanMarkdown(text: string): string {
+  return text
+    .replace(/^#{1,6}\s+/gm, "")          // ## Heading → Heading
+    .replace(/\*\*([^*]+)\*\*/g, "$1")     // **bold** → bold
+    .replace(/\*([^*]+)\*/g, "$1")         // *italic* → italic
+    .replace(/^---+$/gm, "")              // --- horizontal rules
+    .replace(/^-{3,}$/gm, "")
+    .replace(/^\d+\.\s*\*\*/gm, "")       // 1. ** numbered bold starts
+    .replace(/\n{3,}/g, "\n\n")           // collapse triple+ newlines
+    .trim();
+}
+
+/* ══════════════════════════════════════════
+   Message with inline chips
+   ══════════════════════════════════════════ */
+
+function MessageWithInlineChips({
+  content,
+  replies,
+  selections,
+  onToggle,
+}: {
+  content: string;
+  replies: QuickReply[];
+  selections: Record<string, string[]>;
+  onToggle: (label: string, option: string, multi: boolean) => void;
+}) {
+  const cleaned = cleanMarkdown(content);
+
+  if (!replies || replies.length === 0) {
+    return <div className="whitespace-pre-wrap">{cleaned}</div>;
+  }
+
+  // Build a map of label (lowercased) → QuickReply
+  const replyMap = new Map<string, QuickReply>();
+  for (const r of replies) {
+    replyMap.set(r.label.toLowerCase(), r);
+  }
+
+  // Split text into lines, find lines matching reply labels, inject chips
+  const lines = cleaned.split("\n");
+  const elements: React.ReactNode[] = [];
+  const usedLabels = new Set<string>();
+  let textBuffer: string[] = [];
+
+  const flushText = (idx: number) => {
+    const text = textBuffer.join("\n").trim();
+    if (text) {
+      elements.push(
+        <span key={`t-${idx}`} className="whitespace-pre-wrap block">{text}</span>,
+      );
+    }
+    textBuffer = [];
+  };
+
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li];
+    const lineClean = line.replace(/[?:]/g, "").trim().toLowerCase();
+
+    // Check if this line matches a reply label
+    let foundReply: QuickReply | null = null;
+    for (const [labelLower, reply] of replyMap) {
+      if (
+        !usedLabels.has(labelLower) &&
+        (lineClean === labelLower ||
+          lineClean.includes(labelLower) ||
+          labelLower.includes(lineClean)) &&
+        lineClean.length > 2
+      ) {
+        foundReply = reply;
+        usedLabels.add(labelLower);
+        break;
+      }
+    }
+
+    if (foundReply) {
+      flushText(li);
+      const selected = selections[foundReply.label] || [];
+
+      elements.push(
+        <div key={`c-${li}`} className="my-2">
+          <p className="text-[10px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            {foundReply.label}
+            {foundReply.multi && (
+              <span className="font-normal normal-case text-ink-400">(select multiple)</span>
+            )}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {foundReply.options.map((opt) => {
+              const isSelected = selected.includes(opt);
+              return (
+                <button
+                  key={opt}
+                  onClick={() => onToggle(foundReply!.label, opt, foundReply!.multi)}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all duration-150 border ${
+                    isSelected
+                      ? "bg-cta text-white border-cta shadow-sm scale-[1.02]"
+                      : "bg-white text-ink-600 border-ink-200 hover:border-cta/40 hover:bg-cta-light/50"
+                  }`}
+                >
+                  {isSelected && <Check className="h-3 w-3 inline mr-1 -mt-0.5" />}
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+        </div>,
+      );
+    } else {
+      textBuffer.push(line);
+    }
+  }
+
+  flushText(lines.length);
+
+  // Render any unmatched replies at the bottom
+  for (const reply of replies) {
+    if (!usedLabels.has(reply.label.toLowerCase())) {
+      const selected = selections[reply.label] || [];
+      elements.push(
+        <div key={`u-${reply.label}`} className="my-2">
+          <p className="text-[10px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            {reply.label}
+            {reply.multi && (
+              <span className="font-normal normal-case text-ink-400">(select multiple)</span>
+            )}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {reply.options.map((opt) => {
+              const isSelected = selected.includes(opt);
+              return (
+                <button
+                  key={opt}
+                  onClick={() => onToggle(reply.label, opt, reply.multi)}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all duration-150 border ${
+                    isSelected
+                      ? "bg-cta text-white border-cta shadow-sm scale-[1.02]"
+                      : "bg-white text-ink-600 border-ink-200 hover:border-cta/40 hover:bg-cta-light/50"
+                  }`}
+                >
+                  {isSelected && <Check className="h-3 w-3 inline mr-1 -mt-0.5" />}
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+        </div>,
+      );
+    }
+  }
+
+  return <div>{elements}</div>;
+}
+
+/* ══════════════════════════════════════════
    Build Pipeline — animated stage indicator
    ══════════════════════════════════════════ */
 
@@ -977,29 +1135,47 @@ export default function AgentBuilder() {
             )}
 
             {/* Messages */}
-            {messages.map((msg, i) => (
-              <div key={i} className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                {msg.role === "assistant" && (
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cta to-amber-500 mt-0.5">
-                    <Bot className="h-3.5 w-3.5 text-white" />
+            {messages.map((msg, i) => {
+              const isLastAssistant = msg.role === "assistant" && i === messages.length - 1;
+              const hasInlineChips = isLastAssistant && showQuickReplies;
+
+              return (
+                <div key={i} className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  {msg.role === "assistant" && (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cta to-amber-500 mt-0.5">
+                      <Bot className="h-3.5 w-3.5 text-white" />
+                    </div>
+                  )}
+                  <div
+                    className={`rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                      msg.role === "user"
+                        ? "max-w-[85%] bg-ink-900 text-white rounded-br-md"
+                        : hasInlineChips
+                          ? "max-w-[95%] bg-ink-50 text-ink-800 border border-ink-100 rounded-bl-md"
+                          : "max-w-[85%] bg-ink-50 text-ink-800 border border-ink-100 rounded-bl-md"
+                    }`}
+                  >
+                    {hasInlineChips ? (
+                      <MessageWithInlineChips
+                        content={msg.content}
+                        replies={agentDef.quick_replies}
+                        selections={chipSelections}
+                        onToggle={handleChipToggle}
+                      />
+                    ) : (
+                      <div className="whitespace-pre-wrap">
+                        {msg.role === "assistant" ? cleanMarkdown(msg.content) : msg.content}
+                      </div>
+                    )}
                   </div>
-                )}
-                <div
-                  className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-ink-900 text-white rounded-br-md"
-                      : "bg-ink-50 text-ink-800 border border-ink-100 rounded-bl-md"
-                  }`}
-                >
-                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                  {msg.role === "user" && (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cobalt mt-0.5">
+                      <User className="h-3.5 w-3.5 text-white" />
+                    </div>
+                  )}
                 </div>
-                {msg.role === "user" && (
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cobalt mt-0.5">
-                    <User className="h-3.5 w-3.5 text-white" />
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
 
             {/* Streaming message */}
             {isStreaming && currentStreamChat && (
@@ -1008,7 +1184,7 @@ export default function AgentBuilder() {
                   <Bot className="h-3.5 w-3.5 text-white" />
                 </div>
                 <div className="max-w-[85%] rounded-xl rounded-bl-md bg-ink-50 text-ink-800 border border-ink-100 px-3.5 py-2.5 text-sm leading-relaxed">
-                  <div className="whitespace-pre-wrap">{currentStreamChat}</div>
+                  <div className="whitespace-pre-wrap">{cleanMarkdown(currentStreamChat)}</div>
                   <span className="inline-block w-1.5 h-4 bg-cta animate-pulse ml-0.5 -mb-0.5 rounded-sm" />
                 </div>
               </div>
@@ -1030,14 +1206,7 @@ export default function AgentBuilder() {
               </div>
             )}
 
-            {/* Quick Reply Chips */}
-            {showQuickReplies && (
-              <QuickReplies
-                replies={agentDef.quick_replies}
-                selections={chipSelections}
-                onToggle={handleChipToggle}
-              />
-            )}
+            {/* Quick Reply Chips — now rendered inline inside the last assistant message */}
 
             {/* Error */}
             {error && (
