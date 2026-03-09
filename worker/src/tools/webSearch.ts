@@ -76,6 +76,25 @@ export const webSearchTool: ToolDefinition = {
       };
     }
 
+    // Strategy 3: Auto-simplify — strip qualifiers and retry with shorter query
+    const simplified = simplifyQuery(query);
+    if (simplified !== query) {
+      const retryResults = await searchDDGHtml(simplified, count);
+      if (retryResults.length > 0) {
+        return {
+          success: true,
+          data: {
+            query: simplified,
+            original_query: query,
+            count: retryResults.length,
+            results: retryResults,
+            source: "DuckDuckGo (simplified query)",
+          },
+          summary: `No results for '${query}', but found ${retryResults.length} results for simplified query '${simplified}'.`,
+        };
+      }
+    }
+
     return {
       success: false,
       data: { query },
@@ -284,6 +303,34 @@ function decodeDDGUrl(url: string): string {
     }
   }
   return url.startsWith("//") ? `https:${url}` : url;
+}
+
+/**
+ * Simplify a complex query by stripping qualifiers, dates, and specifics.
+ * E.g. "IEEM ETF 1-year return Morningstar rating 2025" → "IEEM ETF"
+ */
+function simplifyQuery(query: string): string {
+  let simplified = query
+    // Remove year references
+    .replace(/\b20\d{2}\b/g, "")
+    // Remove common qualifiers
+    .replace(
+      /\b(latest|current|recent|best|top|new|updated|rating|review|analysis|report|data|statistics|morningstar|performance|return|yield|price|cost|fee|expense ratio)\b/gi,
+      "",
+    )
+    // Remove number-based qualifiers like "1-year", "5-star", "10%"
+    .replace(/\b\d+[-–]\s*(year|month|day|week|star|yr|mo)\b/gi, "")
+    .replace(/\b\d+%/g, "")
+    // Collapse whitespace
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // If we stripped too much (< 3 chars), just take the first 2-3 words of original
+  if (simplified.length < 3) {
+    simplified = query.split(/\s+/).slice(0, 3).join(" ");
+  }
+
+  return simplified;
 }
 
 /** Strip HTML tags and decode entities */
