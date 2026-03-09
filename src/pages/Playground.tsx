@@ -245,6 +245,7 @@ export default function Playground() {
   const [userPrompt, setUserPrompt] = useState("");
   const [provider, setProvider] = useState<LLMProvider>("zai");
   const [apiKey, setApiKey] = useState("");
+  const [model, setModel] = useState("");
   const [hasExecuted, setHasExecuted] = useState(false);
   const [conversation, setConversation] = useState<ConversationTurn[]>([]);
   const [followUpText, setFollowUpText] = useState("");
@@ -310,6 +311,7 @@ export default function Playground() {
     setConversation([]);
     const result = await execute(slugToRun, parsedInput, {
       provider,
+      model: model || undefined,
       userApiKey: apiKey || undefined,
       documentIds: overrideSlug ? undefined : documentIds.length > 0 ? documentIds : undefined,
       prompt: promptToRun || undefined,
@@ -358,6 +360,7 @@ export default function Playground() {
     // Execute with full message history
     const result = await execute(selectedAgent.slug, {}, {
       provider,
+      model: model || undefined,
       userApiKey: apiKey || undefined,
       messages: historyMessages,
     });
@@ -559,6 +562,8 @@ export default function Playground() {
                     onProviderChange={setProvider}
                     apiKey={apiKey}
                     onApiKeyChange={setApiKey}
+                    model={model}
+                    onModelChange={setModel}
                   />
                 </div>
               </div>
@@ -660,6 +665,8 @@ export default function Playground() {
                 onProviderChange={setProvider}
                 apiKey={apiKey}
                 onApiKeyChange={setApiKey}
+                model={model}
+                onModelChange={setModel}
               />
             </div>
             <div className="flex gap-3 shrink-0">
