@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { Play, Square, RotateCcw, AlertCircle, Info, Copy, Download, Check, Brain, FileSearch, Database, Shield, ChevronDown, ChevronUp, ChevronRight, Pencil, Search, Calculator, ShieldCheck, FileText, Scale, Loader2, AlertTriangle, Clock, Zap, Sparkles } from "lucide-react";
+import { Play, Square, RotateCcw, AlertCircle, Info, Copy, Download, Check, Brain, FileSearch, Database, Shield, ChevronDown, ChevronUp, ChevronRight, Pencil, Search, Calculator, ShieldCheck, FileText, Scale, Loader2, AlertTriangle, Clock, Zap, Sparkles, Send, User, Bot } from "lucide-react";
 import type { Agent, LLMProvider, AgentStep, StepType } from "../types";
 import { getAgents, getAgent } from "../services/api";
 import { useAgentExecution } from "../hooks/useAgentExecution";
@@ -228,6 +228,14 @@ function AgentSteps({ steps, agent, isStreaming }: { steps: AgentStep[]; agent: 
   );
 }
 
+interface ConversationTurn {
+  role: "user" | "assistant";
+  content: string;
+  blocks?: import("../types").VisualBlock[];
+  steps?: AgentStep[];
+  isInitial?: boolean;
+}
+
 export default function Playground() {
   const { slug: paramSlug } = useParams<{ slug: string }>();
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -238,6 +246,10 @@ export default function Playground() {
   const [provider, setProvider] = useState<LLMProvider>("zai");
   const [apiKey, setApiKey] = useState("");
   const [hasExecuted, setHasExecuted] = useState(false);
+  const [conversation, setConversation] = useState<ConversationTurn[]>([]);
+  const [followUpText, setFollowUpText] = useState("");
+  const followUpRef = useRef<HTMLInputElement>(null);
+  const conversationEndRef = useRef<HTMLDivElement>(null);
 
   const { blocks, steps, isStreaming, error, auditLogId, execute, stop, reset, getRawText } =
     useAgentExecution();
@@ -295,12 +307,20 @@ export default function Playground() {
     const promptToRun = overridePrompt ?? userPrompt.trim();
 
     setHasExecuted(true);
+    setConversation([]);
     const result = await execute(slugToRun, parsedInput, {
       provider,
       userApiKey: apiKey || undefined,
       documentIds: overrideSlug ? undefined : documentIds.length > 0 ? documentIds : undefined,
       prompt: promptToRun || undefined,
     });
+
+    // Record initial conversation turn
+    const userContent = promptToRun || JSON.stringify(parsedInput, null, 2);
+    setConversation([
+      { role: "user", content: userContent, isInitial: true },
+      { role: "assistant", content: result.rawText },
+    ]);
 
     // Handle seamless agent-to-agent handoff
     if (result.handoff) {
@@ -319,12 +339,44 @@ export default function Playground() {
     }
   };
 
+  const handleFollowUp = async () => {
+    if (!followUpText.trim() || isStreaming || !selectedAgent) return;
+
+    const userMessage = followUpText.trim();
+    setFollowUpText("");
+
+    // Build messages from conversation history + new message
+    const historyMessages = conversation.map((turn) => ({
+      role: turn.role as "user" | "assistant",
+      content: turn.content,
+    }));
+    historyMessages.push({ role: "user" as const, content: userMessage });
+
+    // Add user turn to conversation immediately
+    setConversation((prev) => [...prev, { role: "user", content: userMessage }]);
+
+    // Execute with full message history
+    const result = await execute(selectedAgent.slug, {}, {
+      provider,
+      userApiKey: apiKey || undefined,
+      messages: historyMessages,
+    });
+
+    // Add assistant response
+    setConversation((prev) => [
+      ...prev,
+      { role: "assistant", content: result.rawText },
+    ]);
+  };
+
   const handleReset = () => {
     reset();
     clearDocuments();
     setUserPrompt("");
     setHasExecuted(false);
     setCopied(false);
+    setConversation([]);
+    setFollowUpText("");
   };
 
   const handleCopyRaw = () => {
@@ -360,6 +412,11 @@ export default function Playground() {
   } catch {
     isValidJson = false;
   }
+
+  // Auto-scroll to bottom on new conversation turns
+  useEffect(() => {
+    conversationEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [conversation.length]);
 
   const executionDone = hasExecuted && !isStreaming && blocks.length > 0;
   const showingResponse = hasExecuted || isStreaming;
@@ -678,7 +735,52 @@ export default function Playground() {
             )}
 
             <ErrorBoundary>
-              {/* Real agentic steps */}
+              {/* Previous conversation turns (completed) */}
+              {conversation.length > 2 && (
+                <div className="mb-4 space-y-3">
+                  {conversation.slice(0, -2).map((turn, i) => (
+                    <div key={i}>
+                      {turn.role === "user" && !turn.isInitial && (
+                        <div className="flex items-start gap-2.5 mb-2">
+                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cobalt/10 text-cobalt mt-0.5">
+                            <User className="h-3 w-3" />
+                          </div>
+                          <div className="flex-1 rounded-lg bg-cobalt/[0.04] border border-cobalt/10 px-3 py-2">
+                            <p className="text-sm text-ink-700">{turn.content}</p>
+                          </div>
+                        </div>
+                      )}
+                      {turn.role === "assistant" && (
+                        <div className="flex items-start gap-2.5">
+                          <div
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full mt-0.5"
+                            style={{ backgroundColor: (selectedAgent?.color || "#6B7280") + "18", color: selectedAgent?.color || "#6B7280" }}
+                          >
+                            <Bot className="h-3 w-3" />
+                          </div>
+                          <div className="flex-1 text-sm text-ink-600 leading-relaxed border-b border-ink-100 pb-3 mb-1">
+                            <p className="line-clamp-4 whitespace-pre-wrap">{turn.content.slice(0, 500)}{turn.content.length > 500 ? "..." : ""}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Show follow-up user message if this is a follow-up turn */}
+              {conversation.length > 2 && (
+                <div className="flex items-start gap-2.5 mb-3">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cobalt/10 text-cobalt mt-0.5">
+                    <User className="h-3 w-3" />
+                  </div>
+                  <div className="flex-1 rounded-lg bg-cobalt/[0.04] border border-cobalt/10 px-3 py-2">
+                    <p className="text-sm text-ink-700">{conversation[conversation.length - 2]?.content}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Current streaming response (latest turn) */}
               {steps.length > 0 && (
                 <div className="mb-4">
                   <AgentSteps steps={steps} agent={selectedAgent} isStreaming={blocks.length === 0 && isStreaming} />
@@ -686,13 +788,44 @@ export default function Playground() {
               )}
 
               {blocks.length === 0 && isStreaming && steps.length === 0 ? (
-                /* Fallback for single-shot agents (no tools) */
                 <AgentSteps steps={[]} agent={selectedAgent} isStreaming={isStreaming} />
               ) : (
                 <ResponseViewer blocks={blocks} isStreaming={isStreaming} />
               )}
+
+              <div ref={conversationEndRef} />
             </ErrorBoundary>
           </div>
+
+          {/* Follow-up chat input */}
+          {executionDone && (
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <input
+                  ref={followUpRef}
+                  type="text"
+                  value={followUpText}
+                  onChange={(e) => setFollowUpText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleFollowUp();
+                    }
+                  }}
+                  placeholder="Ask a follow-up question..."
+                  className="input !pr-10"
+                  disabled={isStreaming}
+                />
+                <button
+                  onClick={handleFollowUp}
+                  disabled={!followUpText.trim() || isStreaming}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-md bg-cta text-white hover:bg-cta/90 disabled:opacity-30 disabled:hover:bg-cta transition-colors"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Post-execution feedback + contact */}
           {executionDone && (

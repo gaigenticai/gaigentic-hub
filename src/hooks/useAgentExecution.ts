@@ -116,9 +116,11 @@ export function useAgentExecution() {
         userApiKey?: string;
         documentIds?: string[];
         prompt?: string;
+        messages?: Array<{ role: "user" | "assistant"; content: string }>;
       },
     ): Promise<{
       auditLogId: string | null;
+      rawText: string;
       handoff?: { target_agent_slug: string; context_payload: Record<string, unknown>; action_requested: string; };
     }> => {
       // Abort previous execution
@@ -211,7 +213,7 @@ export function useAgentExecution() {
 
       setIsStreaming(false);
       const resolvedId = await auditIdPromise;
-      return { auditLogId: resolvedId, handoff: handoffData || undefined };
+      return { auditLogId: resolvedId, rawText: rawTextRef.current, handoff: handoffData || undefined };
     },
     [],
   );

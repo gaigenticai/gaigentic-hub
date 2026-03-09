@@ -107,9 +107,14 @@ playground.post("/execute", async (c) => {
     user_api_key?: string;
     document_ids?: string[];
     prompt?: string;
+    messages?: Array<{ role: "user" | "assistant"; content: string }>;
   }>();
 
-  if (!body.agent_slug || !body.input) {
+  if (!body.agent_slug) {
+    return c.json({ error: "agent_slug is required" }, 400);
+  }
+  // For follow-up turns, input can be empty
+  if (!body.messages && !body.input) {
     return c.json({ error: "agent_slug and input are required" }, 400);
   }
 
@@ -284,6 +289,8 @@ playground.post("/execute", async (c) => {
   const toolInstructions = buildToolInstructions(agentTools);
 
   // Build messages
+  const isFollowUp = body.messages && body.messages.length > 0;
+
   const NO_CLARIFICATION_GUARDRAIL = `
 
 <guardrail_no_clarification>
@@ -295,14 +302,15 @@ State your assumptions clearly in the output, but ALWAYS deliver a complete, act
 
   const systemPrompt =
     agent.system_prompt +
-    NO_CLARIFICATION_GUARDRAIL +
+    (isFollowUp ? "" : NO_CLARIFICATION_GUARDRAIL) +
     ragContext +
     documentContext +
     "\n\n" +
     VISUAL_OUTPUT_INSTRUCTIONS +
     toolInstructions;
 
-  const hasEmptyInput = Object.keys(body.input).length === 0;
+  const inputObj = body.input || {};
+  const hasEmptyInput = Object.keys(inputObj).length === 0;
   const userPrompt = body.prompt?.trim() || "";
 
   let inputText: string;
@@ -311,14 +319,26 @@ State your assumptions clearly in the output, but ALWAYS deliver a complete, act
   } else {
     const parts: string[] = [];
     if (userPrompt) parts.push(userPrompt);
-    if (!hasEmptyInput) parts.push("Input data:\n" + JSON.stringify(body.input, null, 2));
-    inputText = parts.join("\n\n") || JSON.stringify(body.input, null, 2);
+    if (!hasEmptyInput) parts.push("Input data:\n" + JSON.stringify(inputObj, null, 2));
+    inputText = parts.join("\n\n") || JSON.stringify(inputObj, null, 2);
   }
 
-  const messages = [
-    { role: "system" as const, content: systemPrompt },
-    { role: "user" as const, content: inputText },
-  ];
+  let messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+
+  if (isFollowUp) {
+    // Follow-up mode: system prompt + full conversation history
+    messages = [
+      { role: "system", content: systemPrompt },
+      ...body.messages!.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+    ];
+    // Use the last user message for audit
+    inputText = body.messages![body.messages!.length - 1].content;
+  } else {
+    messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: inputText },
+    ];
+  }
 
   // Parse guardrails
   let maxTokens = 2048;

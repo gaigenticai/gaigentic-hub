@@ -317,6 +317,7 @@ export function executeAgent(
     userApiKey?: string;
     documentIds?: string[];
     prompt?: string;
+    messages?: Array<{ role: "user" | "assistant"; content: string }>;
   },
 ): {
   stream: ReadableStream<string>;
@@ -348,6 +349,7 @@ export function executeAgent(
             user_api_key: options?.userApiKey,
             document_ids: options?.documentIds,
             prompt: options?.prompt,
+            messages: options?.messages,
           }),
           signal: controller.signal,
         });
