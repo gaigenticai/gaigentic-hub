@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import type { Agent } from "../types";
 import AuditBadge from "./AuditBadge";
+import AgentIcon from "./AgentIcon";
 import JurisdictionPills from "./JurisdictionPills";
 
 interface Props {
@@ -15,9 +16,9 @@ export default function FeaturedAgent({ agent }: Props) {
         {/* Icon */}
         <div
           className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg text-3xl"
-          style={{ backgroundColor: `${agent.color}12` }}
+          style={{ backgroundColor: `${agent.color}12`, color: agent.color }}
         >
-          {agent.icon}
+          <AgentIcon icon={agent.icon} className="w-8 h-8" />
         </div>
 
         {/* Content */}

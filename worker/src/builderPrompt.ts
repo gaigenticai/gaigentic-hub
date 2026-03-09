@@ -79,12 +79,13 @@ RULES:
 2. The JSON must be valid and on a SINGLE line between the delimiters (no line breaks inside the JSON)
 3. Keep conversational text to 2-5 sentences. NEVER use markdown (no **, ##, *). Plain text only.
 4. "quick_replies" — include in steps 1-3. Each has "label" (must match a question line in your text), "options" (4-7 chips), "multi" (default true)
-5. "capabilities" must be objects: [{"icon":"Shield","title":"Name","description":"What it does"}]. Valid icons: Shield, Calculator, Search, FileText, Brain, Target, Globe, BarChart3, TrendingUp, Receipt, HeartPulse, Zap, Tag
-6. "skills" array uses slugs from the AVAILABLE SKILLS list above
-7. "tools" array = union of tools from selected skills
-8. Prefer existing skills over creating new ones
-9. System prompt sections should be DETAILED (50+ lines each for major sections)
-10. Questions must each be on their own line, ending with "?" — the frontend matches them to quick_reply labels`;
+5. "capabilities" must be objects: [{"icon":"Shield","title":"Name","description":"What it does"}]. Valid icon names: Shield, Calculator, Search, FileText, Brain, Target, Globe, BarChart3, TrendingUp, Receipt, HeartPulse, Zap, Tag, DollarSign, CreditCard, Scale, Building2, Landmark, PieChart, Activity, Briefcase, Lock
+6. metadata.icon MUST be a single emoji character (e.g. "🔍", "🛡️", "📊", "💰", "📋", "⚖️", "🏦", "🔬"). NEVER use Lucide names for metadata.icon.
+7. "skills" array uses slugs from the AVAILABLE SKILLS list above
+8. "tools" array = union of tools from selected skills
+9. Prefer existing skills over creating new ones
+10. System prompt sections should be DETAILED (50+ lines each for major sections)
+11. Questions must each be on their own line, ending with "?" — the frontend matches them to quick_reply labels`;
 }
 
 export interface SkillSummary {

@@ -14,6 +14,7 @@ import ContactCTA from "../components/ContactCTA";
 import PageTransition from "../components/PageTransition";
 import ErrorBoundary from "../components/ErrorBoundary";
 import DemoBanner from "../components/DemoBanner";
+import AgentIcon from "../components/AgentIcon";
 
 /* ── Step type configuration ── */
 const STEP_TYPE_CONFIG: Record<StepType, { icon: typeof Search; color: string; bg: string; border: string; label: string }> = {
@@ -177,7 +178,7 @@ function AgentSteps({ steps, agent, isStreaming }: { steps: AgentStep[]; agent: 
               className="flex h-8 w-8 items-center justify-center rounded-lg text-base"
               style={{ backgroundColor: agent.color + "18", color: agent.color }}
             >
-              {agent.icon}
+              <AgentIcon icon={agent.icon} className="w-4 h-4" />
             </div>
           )}
           <div>
@@ -407,9 +408,9 @@ export default function Playground() {
               {selectedAgent && (
                 <div
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base"
-                  style={{ backgroundColor: selectedAgent.color + "18" }}
+                  style={{ backgroundColor: selectedAgent.color + "18", color: selectedAgent.color }}
                 >
-                  {selectedAgent.icon}
+                  <AgentIcon icon={selectedAgent.icon} className="w-4 h-4" />
                 </div>
               )}
               <div className="min-w-0">

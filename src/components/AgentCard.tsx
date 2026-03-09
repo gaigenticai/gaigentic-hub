@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import type { Agent } from "../types";
 import StatusBadge from "./StatusBadge";
+import AgentIcon from "./AgentIcon";
 
 const CATEGORY_COLORS: Record<string, string> = {
   underwriting: "bg-cobalt-light text-cobalt border-cobalt/15",
@@ -31,7 +32,7 @@ export default function AgentCard({ agent }: { agent: Agent }) {
           className="flex h-10 w-10 items-center justify-center rounded-lg text-xl"
           style={{ backgroundColor: `${agent.color}12`, color: agent.color }}
         >
-          {agent.icon}
+          <AgentIcon icon={agent.icon} className="w-5 h-5" />
         </div>
         <StatusBadge status={agent.status} />
       </div>

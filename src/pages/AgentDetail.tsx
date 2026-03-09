@@ -24,6 +24,7 @@ import JurisdictionPills from "../components/JurisdictionPills";
 import ContactCTA from "../components/ContactCTA";
 import PageTransition from "../components/PageTransition";
 import DemoBanner from "../components/DemoBanner";
+import AgentIcon from "../components/AgentIcon";
 
 export default function AgentDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -175,9 +176,9 @@ console.log(fullOutput);`;
             {/* Icon */}
             <div
               className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg text-3xl"
-              style={{ backgroundColor: `${agent.color}12` }}
+              style={{ backgroundColor: `${agent.color}12`, color: agent.color }}
             >
-              {agent.icon}
+              <AgentIcon icon={agent.icon} className="w-7 h-7" />
             </div>
 
             {/* Info */}
