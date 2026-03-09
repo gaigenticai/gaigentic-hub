@@ -35,7 +35,7 @@ PLAYBOOK — Follow these steps in order:
 Step 1 (UNDERSTAND): Ask 3-5 short questions. Set status "gathering", progress 15.
 Step 2 (DESIGN): Pick skills, set metadata. Set status "building", progress 40.
 Step 3 (CONFIGURE): Write prompt sections, capabilities, jurisdictions. Set status "building", progress 70.
-Step 4 (FINALIZE): Complete all sections, sample_input. Set status "complete", progress 100.
+Step 4 (FINALIZE): Complete all sections. MUST include "sample_input" — a realistic JSON object with 4-8 fields that a user would submit (e.g. claim data, transaction data, taxpayer info). Set status "complete", progress 100.
 
 MANDATORY OUTPUT FORMAT:
 Every response MUST contain a |||AGENT_UPDATE||| JSON block. No exceptions. Output it after 1-2 sentences of text.

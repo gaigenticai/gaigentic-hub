@@ -1479,8 +1479,6 @@ export default function AgentBuilder() {
     try {
       const token = getSessionToken();
       const streamUrl = `${API_BASE}/builder/chat`;
-      console.log("[builder] POST", streamUrl, { provider: userProvider, hasKey: !!userApiKey.trim(), hasToken: !!token });
-
       const res = await fetch(streamUrl, {
         method: "POST",
         headers: {
@@ -1493,8 +1491,6 @@ export default function AgentBuilder() {
         }),
         signal: controller.signal,
       });
-
-      console.log("[builder] Response status:", res.status, res.headers.get("content-type"));
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: res.statusText }));
@@ -1509,17 +1505,12 @@ export default function AgentBuilder() {
       const decoder = new TextDecoder();
       const sseParser = createSSEParser();
       let fullText = "";
-      let chunkCount = 0;
-      let rawChunks = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });
-        chunkCount++;
-        rawChunks += chunk;
-        if (chunkCount <= 3) console.log(`[builder] chunk ${chunkCount}:`, JSON.stringify(chunk).slice(0, 200));
         const events = sseParser(chunk);
 
         for (const evt of events) {
@@ -1552,9 +1543,6 @@ export default function AgentBuilder() {
           }
         }
       }
-
-      console.log("[builder] Stream ended. chunks:", chunkCount, "fullText length:", fullText.length);
-      if (!fullText && rawChunks) console.log("[builder] Raw chunks (no parsed text):", rawChunks.slice(0, 500));
 
       // Final parse
       const { chatText, agent } = extractAgentUpdate(fullText);

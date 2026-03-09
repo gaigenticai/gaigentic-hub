@@ -408,7 +408,38 @@ builder.post("/save", async (c) => {
         : cap
   );
 
-  // 6. Insert the agent
+  // 6. Generate sample_input if LLM didn't provide one
+  let sampleInput = body.sample_input;
+  if (!sampleInput || Object.keys(sampleInput).length === 0) {
+    try {
+      const sampleProvider = getBuilderProvider(c.env);
+      const sampleResult = await sampleProvider.chat({
+        model: getDefaultModel("workers-ai"),
+        messages: [
+          {
+            role: "system",
+            content: "You generate realistic sample JSON input data for AI agents. Output ONLY valid JSON, no explanation.",
+          },
+          {
+            role: "user",
+            content: `Generate a realistic sample input JSON for an AI agent called "${body.metadata.name}" (${body.metadata.description}). Category: ${body.metadata.category}. Jurisdictions: ${(body.jurisdictions || []).join(", ") || "Global"}. The JSON should have 4-8 fields with realistic test values that a user would actually submit. Output ONLY the JSON object.`,
+          },
+        ],
+        max_tokens: 512,
+        temperature: 0.3,
+      });
+      // Extract JSON from response
+      const jsonMatch = sampleResult.content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        sampleInput = JSON.parse(jsonMatch[0]);
+      }
+    } catch {
+      // Fallback — generate basic sample from agent metadata
+      sampleInput = { query: `Sample input for ${body.metadata.name}`, data: {} };
+    }
+  }
+
+  // 7. Insert the agent
   const agentId = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
 
   await c.env.DB.prepare(
@@ -424,7 +455,7 @@ builder.post("/save", async (c) => {
       body.metadata.category,
       body.metadata.icon,
       body.metadata.color,
-      body.sample_input ? JSON.stringify(body.sample_input) : "{}",
+      JSON.stringify(sampleInput),
       systemPrompt,
       JSON.stringify(body.guardrails_config),
       JSON.stringify(normalizedCapabilities),

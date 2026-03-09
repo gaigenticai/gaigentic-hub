@@ -128,42 +128,8 @@ class OpenAIProvider implements LLMProvider {
   constructor(private apiKey: string) {}
 
   async chat(params: ChatParams): Promise<ChatResponse> {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: params.model || "gpt-4.1-mini",
-        messages: params.messages,
-        max_tokens: params.max_tokens || 2048,
-        temperature: params.temperature ?? 0.7,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`OpenAI error (${res.status}): ${err}`);
-    }
-
-    const data = (await res.json()) as {
-      choices: Array<{ message: { content: string } }>;
-      usage?: { prompt_tokens: number; completion_tokens: number };
-    };
-
-    return {
-      content: data.choices[0]?.message?.content || "",
-      usage: {
-        input_tokens: data.usage?.prompt_tokens || 0,
-        output_tokens: data.usage?.completion_tokens || 0,
-      },
-      model: params.model || "gpt-4.1-mini",
-      provider: "openai",
-    };
-  }
-
-  async stream(params: ChatParams): Promise<ReadableStream> {
+    // Use streaming internally to avoid Cloudflare 524 timeout on large prompts.
+    // Streaming gets first byte fast; we collect all tokens server-side.
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -181,10 +147,15 @@ class OpenAIProvider implements LLMProvider {
 
     if (!res.ok) {
       const err = await res.text();
-      throw new Error(`OpenAI stream error (${res.status}): ${err}`);
+      throw new Error(`OpenAI error (${res.status}): ${err}`);
     }
 
-    return transformSSEStream(res.body!, "openai", params.model || "gpt-4.1-mini");
+    return collectOpenAIStream(res.body!, params.model || "gpt-4.1-mini");
+  }
+
+  async stream(params: ChatParams): Promise<ReadableStream> {
+    const response = await this.chat(params);
+    return emitAsSSE(response.content, "openai", response.model);
   }
 }
 
@@ -200,46 +171,8 @@ class AnthropicProvider implements LLMProvider {
     const systemMsg = params.messages.find((m) => m.role === "system");
     const nonSystemMsgs = params.messages.filter((m) => m.role !== "system");
 
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": this.apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: params.model || "claude-sonnet-4-6",
-        max_tokens: params.max_tokens || 2048,
-        ...(systemMsg ? { system: systemMsg.content } : {}),
-        messages: nonSystemMsgs,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Anthropic error (${res.status}): ${err}`);
-    }
-
-    const data = (await res.json()) as {
-      content: Array<{ text: string }>;
-      usage?: { input_tokens: number; output_tokens: number };
-    };
-
-    return {
-      content: data.content[0]?.text || "",
-      usage: {
-        input_tokens: data.usage?.input_tokens || 0,
-        output_tokens: data.usage?.output_tokens || 0,
-      },
-      model: params.model || "claude-sonnet-4-6",
-      provider: "anthropic",
-    };
-  }
-
-  async stream(params: ChatParams): Promise<ReadableStream> {
-    const systemMsg = params.messages.find((m) => m.role === "system");
-    const nonSystemMsgs = params.messages.filter((m) => m.role !== "system");
-
+    // Use streaming internally to avoid Cloudflare 524 timeout on large prompts.
+    // Streaming gets first byte fast; we collect all tokens server-side.
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -258,160 +191,133 @@ class AnthropicProvider implements LLMProvider {
 
     if (!res.ok) {
       const err = await res.text();
-      throw new Error(`Anthropic stream error (${res.status}): ${err}`);
+      throw new Error(`Anthropic error (${res.status}): ${err}`);
     }
 
-    return transformAnthropicStream(
-      res.body!,
-      params.model || "claude-sonnet-4-6",
-    );
+    return collectAnthropicStream(res.body!, params.model || "claude-sonnet-4-6");
+  }
+
+  async stream(params: ChatParams): Promise<ReadableStream> {
+    // Non-streaming fetch then emit as SSE — CF Workers streaming subrequests
+    // to external APIs are unreliable (streams get cut off mid-response).
+    const response = await this.chat(params);
+    return emitAsSSE(response.content, "anthropic", response.model);
   }
 }
 
 // ==========================================
-// SSE Stream Transformers
+// Stream Collectors — consume streaming API responses server-side
 // ==========================================
 
 /**
- * Transform OpenAI-compatible SSE stream into our unified SSE format.
+ * Collect an OpenAI streaming response into a single ChatResponse.
+ * Keeps the connection alive (first byte is fast) while avoiding
+ * the unreliable pipe-through to the client.
  */
-function readWithTimeout(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-  timeoutMs: number,
-): Promise<ReadableStreamReadResult<Uint8Array>> {
-  return Promise.race([
-    reader.read(),
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("STREAM_TIMEOUT")), timeoutMs),
-    ),
-  ]);
-}
-
-function transformSSEStream(
-  body: ReadableStream,
-  provider: string,
-  model: string,
-): ReadableStream {
+async function collectOpenAIStream(body: ReadableStream, model: string): Promise<ChatResponse> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
-  const encoder = new TextEncoder();
   let buffer = "";
-  let hasContent = false;
+  let content = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const data = line.slice(6);
+      if (data === "[DONE]") continue;
+      try {
+        const parsed = JSON.parse(data);
+        const delta = parsed.choices?.[0]?.delta?.content;
+        if (delta) content += delta;
+      } catch {
+        // skip
+      }
+    }
+  }
+
+  return {
+    content,
+    usage: { input_tokens: 0, output_tokens: 0 },
+    model,
+    provider: "openai",
+  };
+}
+
+/**
+ * Collect an Anthropic streaming response into a single ChatResponse.
+ */
+async function collectAnthropicStream(body: ReadableStream, model: string): Promise<ChatResponse> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let content = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      try {
+        const parsed = JSON.parse(line.slice(6));
+        if (parsed.type === "content_block_delta" && parsed.delta?.text) {
+          content += parsed.delta.text;
+        } else if (parsed.type === "error") {
+          throw new Error(parsed.error?.message || "Anthropic stream error");
+        }
+      } catch (err) {
+        if (err instanceof Error && err.message.includes("Anthropic")) throw err;
+        // skip malformed chunks
+      }
+    }
+  }
+
+  return {
+    content,
+    usage: { input_tokens: 0, output_tokens: 0 },
+    model,
+    provider: "anthropic",
+  };
+}
+
+// ==========================================
+// SSE Helpers
+// ==========================================
+
+/**
+ * Emit a full text response as chunked SSE events.
+ * Splits text into small chunks to simulate token streaming for better UX.
+ */
+function emitAsSSE(text: string, provider: string, model: string): ReadableStream {
+  const encoder = new TextEncoder();
+  const CHUNK_SIZE = 12; // chars per "token" — feels natural
+  let offset = 0;
 
   return new ReadableStream({
-    async pull(controller) {
-      let done: boolean;
-      let value: Uint8Array | undefined;
-
-      try {
-        // 25s timeout per chunk — if z.ai hangs, we detect and error
-        const result = await readWithTimeout(reader, 25000);
-        done = result.done;
-        value = result.value;
-      } catch (err) {
-        if ((err as Error).message === "STREAM_TIMEOUT") {
-          controller.enqueue(
-            encoder.encode(`event: error\ndata: ${JSON.stringify({ error: "The LLM provider is not responding. The shared API key may be expired or rate-limited. Please try with your own API key (OpenAI or Anthropic)." })}\n\n`),
-          );
-          controller.enqueue(
-            encoder.encode(`event: done\ndata: ${JSON.stringify({ provider, model })}\n\n`),
-          );
-          controller.close();
-          reader.cancel();
-          return;
-        }
-        throw err;
-      }
-
-      if (done) {
-        if (!hasContent) {
-          controller.enqueue(
-            encoder.encode(`event: error\ndata: ${JSON.stringify({ error: `${provider} returned an empty response. The API key may be expired or the service is temporarily unavailable. Try using your own API key.` })}\n\n`),
-          );
-        }
+    pull(controller) {
+      if (offset >= text.length) {
         controller.enqueue(
           encoder.encode(`event: done\ndata: ${JSON.stringify({ provider, model })}\n\n`),
         );
         controller.close();
         return;
       }
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const data = line.slice(6);
-        if (data === "[DONE]") continue;
-
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.error) {
-            controller.enqueue(
-              encoder.encode(`event: error\ndata: ${JSON.stringify({ error: parsed.error.message || JSON.stringify(parsed.error) })}\n\n`),
-            );
-            continue;
-          }
-          const content = parsed.choices?.[0]?.delta?.content;
-          if (content) {
-            hasContent = true;
-            controller.enqueue(
-              encoder.encode(`event: token\ndata: ${JSON.stringify({ text: content })}\n\n`),
-            );
-          }
-        } catch {
-          // Skip malformed SSE chunks
-        }
-      }
-    },
-  });
-}
-
-/**
- * Transform Anthropic SSE stream into our unified SSE format.
- */
-function transformAnthropicStream(
-  body: ReadableStream,
-  model: string,
-): ReadableStream {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  const encoder = new TextEncoder();
-  let buffer = "";
-
-  return new ReadableStream({
-    async pull(controller) {
-      const { done, value } = await reader.read();
-      if (done) {
-        controller.enqueue(
-          encoder.encode(
-            `event: done\ndata: ${JSON.stringify({ provider: "anthropic", model })}\n\n`,
-          ),
-        );
-        controller.close();
-        return;
-      }
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        try {
-          const parsed = JSON.parse(line.slice(6));
-          if (parsed.type === "content_block_delta" && parsed.delta?.text) {
-            controller.enqueue(
-              encoder.encode(
-                `event: token\ndata: ${JSON.stringify({ text: parsed.delta.text })}\n\n`,
-              ),
-            );
-          }
-        } catch {
-          // Skip
-        }
-      }
+      const chunk = text.slice(offset, offset + CHUNK_SIZE);
+      offset += CHUNK_SIZE;
+      controller.enqueue(
+        encoder.encode(`event: token\ndata: ${JSON.stringify({ text: chunk })}\n\n`),
+      );
     },
   });
 }
