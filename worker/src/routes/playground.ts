@@ -363,6 +363,14 @@ State your assumptions clearly in the output, but ALWAYS deliver a complete, act
   let actualProvider = providerName;
   let actualModel = model;
 
+  // Auto-upgrade nano models for agentic tool-calling (too weak for structured output)
+  if (agentTools.length > 0) {
+    const NANO_MODELS = ["gpt-4.1-nano", "gpt-4.1-nano-2025-04-14", "gpt-4o-mini", "gpt-4o-mini-2024-07-18"];
+    if (NANO_MODELS.includes(actualModel)) {
+      actualModel = "gpt-4.1-mini";
+    }
+  }
+
   let stream: ReadableStream;
 
   if (agentTools.length > 0) {

@@ -43,23 +43,87 @@ interface AgenticLoopParams {
 
 /**
  * Parse tool calls from LLM response text.
+ * Robust: handles exact markers, markers with spaces/pipes, and common LLM formatting issues.
  */
 function parseToolCall(text: string): {
   toolCall: ToolCall | null;
   textBefore: string;
   textAfter: string;
 } {
-  const openIdx = text.indexOf(TOOL_CALL_OPEN);
+  // Strategy 1: Exact markers
+  let openIdx = text.indexOf(TOOL_CALL_OPEN);
+  let closeIdx = openIdx !== -1 ? text.indexOf(TOOL_CALL_CLOSE, openIdx + TOOL_CALL_OPEN.length) : -1;
+
+  // Strategy 2: Fuzzy match — weaker models insert spaces, newlines, or use different casing
   if (openIdx === -1) {
+    const fuzzyOpen = /\|{2,3}\s*TOOL_CALL\s*\|{2,3}/i;
+    const fuzzyClose = /\|{2,3}\s*END_TOOL_CALL\s*\|{2,3}/i;
+    const openMatch = fuzzyOpen.exec(text);
+    if (openMatch) {
+      openIdx = openMatch.index;
+      const searchAfter = openIdx + openMatch[0].length;
+      const closeMatch = fuzzyClose.exec(text.slice(searchAfter));
+      if (closeMatch) {
+        // Adjust closeIdx to be relative to full text
+        closeIdx = searchAfter + closeMatch.index;
+        // Extract JSON between the fuzzy markers
+        const jsonStr = text.slice(searchAfter, closeIdx).trim();
+        const textBefore = text.slice(0, openIdx).trim();
+        const textAfter = text.slice(closeIdx + closeMatch[0].length).trim();
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+          if (parsed.tool && typeof parsed.tool === "string") {
+            return {
+              toolCall: { tool: parsed.tool, params: parsed.params || {} },
+              textBefore,
+              textAfter,
+            };
+          }
+        } catch {
+          // Try extracting JSON from within the text
+          const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            try {
+              const parsed = JSON.parse(jsonMatch[0]);
+              if (parsed.tool && typeof parsed.tool === "string") {
+                return {
+                  toolCall: { tool: parsed.tool, params: parsed.params || {} },
+                  textBefore,
+                  textAfter,
+                };
+              }
+            } catch { /* skip */ }
+          }
+        }
+      }
+    }
+  }
+
+  // Strategy 3: No markers at all — look for raw JSON with "tool" key (last resort for very weak models)
+  if (openIdx === -1) {
+    const rawJsonMatch = text.match(/\{"tool"\s*:\s*"(\w+)"\s*,\s*"params"\s*:\s*\{[^}]*\}\s*\}/);
+    if (rawJsonMatch) {
+      try {
+        const parsed = JSON.parse(rawJsonMatch[0]);
+        if (parsed.tool && typeof parsed.tool === "string") {
+          const idx = text.indexOf(rawJsonMatch[0]);
+          return {
+            toolCall: { tool: parsed.tool, params: parsed.params || {} },
+            textBefore: text.slice(0, idx).trim(),
+            textAfter: text.slice(idx + rawJsonMatch[0].length).trim(),
+          };
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  if (openIdx === -1 || closeIdx === -1) {
     return { toolCall: null, textBefore: text, textAfter: "" };
   }
 
+  // Exact marker extraction
   const jsonStart = openIdx + TOOL_CALL_OPEN.length;
-  const closeIdx = text.indexOf(TOOL_CALL_CLOSE, jsonStart);
-  if (closeIdx === -1) {
-    return { toolCall: null, textBefore: text, textAfter: "" };
-  }
-
   const jsonStr = text.slice(jsonStart, closeIdx).trim();
   const textBefore = text.slice(0, openIdx).trim();
   const textAfter = text.slice(closeIdx + TOOL_CALL_CLOSE.length).trim();
@@ -74,7 +138,20 @@ function parseToolCall(text: string): {
       };
     }
   } catch {
-    // Invalid JSON
+    // Try extracting JSON object from messy text
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.tool && typeof parsed.tool === "string") {
+          return {
+            toolCall: { tool: parsed.tool, params: parsed.params || {} },
+            textBefore,
+            textAfter,
+          };
+        }
+      } catch { /* skip */ }
+    }
   }
 
   return { toolCall: null, textBefore: text, textAfter: "" };
