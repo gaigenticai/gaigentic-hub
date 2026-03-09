@@ -298,9 +298,12 @@ builder.post("/save", async (c) => {
   const validToolNames = new Set(getAllTools().map((t) => t.name));
   const validatedTools = (body.tools || []).filter((t) => validToolNames.has(t));
   if (body.tools && body.tools.length > 0 && validatedTools.length === 0) {
-    // All tools were invalid — pick reasonable defaults based on category
+    // All tools were invalid — pick reasonable defaults
     validatedTools.push("calculate", "data_validation", "rag_query");
   }
+  // Ensure web_search and browse_url are always included — agents need internet access
+  if (!validatedTools.includes("web_search")) validatedTools.push("web_search");
+  if (!validatedTools.includes("browse_url")) validatedTools.push("browse_url");
 
   // Check slug uniqueness
   const existing = await c.env.DB.prepare("SELECT id FROM agents WHERE slug = ?")
