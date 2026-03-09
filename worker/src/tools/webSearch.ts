@@ -1,10 +1,13 @@
 /**
- * Web Search Tool — DuckDuckGo integration (zero API key, zero cost).
+ * Web Search Tool — Multi-strategy search that works from Cloudflare Workers.
  *
- * Strategy:
- * 1. Try DuckDuckGo HTML lite page — parse real search results
- * 2. If blocked (CAPTCHA), fall back to DuckDuckGo Instant Answer API
- * 3. Both are completely free, no API key needed
+ * DDG blocks server-side requests (bot detection), so we use multiple
+ * fallback strategies that reliably work from CF Workers:
+ *
+ * 1. DuckDuckGo Instant Answer API (limited but works)
+ * 2. Wikipedia API (reliable, great for factual queries)
+ * 3. Yahoo Finance search (for financial/ticker queries)
+ * 4. Auto-simplify and retry
  */
 
 import type { ToolDefinition } from "./types";
@@ -46,40 +49,42 @@ export const webSearchTool: ToolDefinition = {
 
     const count = Math.min(Math.max(Number(params.count) || 5, 1), 10);
 
-    // Strategy 1: DuckDuckGo HTML lite search
-    const htmlResults = await searchDDGHtml(query, count);
-    if (htmlResults.length > 0) {
+    // Run all strategies in parallel for speed
+    const [ddgResults, wikiResults, financeResults] = await Promise.all([
+      searchDDGInstant(query),
+      searchWikipedia(query, count),
+      isFinancialQuery(query) ? searchYahooFinance(query) : Promise.resolve([]),
+    ]);
+
+    // Merge and deduplicate results
+    const allResults = deduplicateResults([
+      ...ddgResults,
+      ...financeResults,
+      ...wikiResults,
+    ]).slice(0, count);
+
+    if (allResults.length > 0) {
       return {
         success: true,
         data: {
           query,
-          count: htmlResults.length,
-          results: htmlResults,
-          source: "DuckDuckGo",
+          count: allResults.length,
+          results: allResults,
+          source: "Web Search",
         },
-        summary: `Found ${htmlResults.length} web results for '${query}'.`,
+        summary: `Found ${allResults.length} web results for '${query}'.`,
       };
     }
 
-    // Strategy 2: DuckDuckGo Instant Answer API (fallback)
-    const instantResults = await searchDDGInstant(query);
-    if (instantResults.length > 0) {
-      return {
-        success: true,
-        data: {
-          query,
-          count: instantResults.length,
-          results: instantResults,
-          source: "DuckDuckGo Instant Answers",
-        },
-        summary: `Found ${instantResults.length} results for '${query}' (instant answers).`,
-      };
-    }
-
-    // Strategy 3: Auto-simplify — strip qualifiers and retry with shorter query
+    // Auto-simplify and retry
     const simplified = simplifyQuery(query);
     if (simplified !== query) {
-      const retryResults = await searchDDGHtml(simplified, count);
+      const [retryDDG, retryWiki] = await Promise.all([
+        searchDDGInstant(simplified),
+        searchWikipedia(simplified, count),
+      ]);
+
+      const retryResults = deduplicateResults([...retryDDG, ...retryWiki]).slice(0, count);
       if (retryResults.length > 0) {
         return {
           success: true,
@@ -88,7 +93,7 @@ export const webSearchTool: ToolDefinition = {
             original_query: query,
             count: retryResults.length,
             results: retryResults,
-            source: "DuckDuckGo (simplified query)",
+            source: "Web Search (simplified query)",
           },
           summary: `No results for '${query}', but found ${retryResults.length} results for simplified query '${simplified}'.`,
         };
@@ -104,107 +109,15 @@ export const webSearchTool: ToolDefinition = {
 };
 
 /**
- * Search via DuckDuckGo HTML lite page.
- * Parses the static HTML response for search result links and snippets.
+ * Detect if query is about finance/stocks/ETFs/markets.
  */
-async function searchDDGHtml(
-  query: string,
-  count: number,
-): Promise<SearchResult[]> {
-  try {
-    const res = await fetch(
-      `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`,
-      {
-        method: "POST",
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          Accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.9",
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: `q=${encodeURIComponent(query)}`,
-      },
-    );
-
-    if (!res.ok) return [];
-
-    const html = await res.text();
-
-    // Check for CAPTCHA
-    if (html.includes("robot") || html.includes("captcha") || html.includes("challenge")) {
-      return [];
-    }
-
-    // Parse results from lite page
-    // DDG lite has a table-based layout with result links and snippets
-    const results: SearchResult[] = [];
-
-    // Match result links: <a rel="nofollow" href="URL" class="result-link">Title</a>
-    const linkRegex =
-      /<a[^>]*rel="nofollow"[^>]*href="([^"]*)"[^>]*class="result-link"[^>]*>([\s\S]*?)<\/a>/gi;
-    // Also try without class for broader matching
-    const altLinkRegex =
-      /<a[^>]*rel="nofollow"[^>]*href="(https?:\/\/[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
-
-    // Extract snippets: <td class="result-snippet">...</td>
-    const snippetRegex = /<td[^>]*class="result-snippet"[^>]*>([\s\S]*?)<\/td>/gi;
-
-    // Try primary pattern
-    let linkMatch;
-    const links: { url: string; title: string }[] = [];
-
-    while ((linkMatch = linkRegex.exec(html)) !== null) {
-      const url = decodeDDGUrl(linkMatch[1]);
-      const title = stripHtml(linkMatch[2]);
-      if (url && title && url.startsWith("http")) {
-        links.push({ url, title });
-      }
-    }
-
-    // Fallback to alt pattern if no results
-    if (links.length === 0) {
-      while ((linkMatch = altLinkRegex.exec(html)) !== null) {
-        const url = decodeDDGUrl(linkMatch[1]);
-        const title = stripHtml(linkMatch[2]);
-        if (
-          url &&
-          title &&
-          url.startsWith("http") &&
-          !url.includes("duckduckgo.com")
-        ) {
-          links.push({ url, title });
-        }
-      }
-    }
-
-    // Extract snippets
-    const snippets: string[] = [];
-    let snippetMatch;
-    while ((snippetMatch = snippetRegex.exec(html)) !== null) {
-      snippets.push(stripHtml(snippetMatch[1]).slice(0, 300));
-    }
-
-    // Combine links and snippets
-    for (let i = 0; i < Math.min(links.length, count); i++) {
-      results.push({
-        title: links[i].title,
-        url: links[i].url,
-        snippet: snippets[i] || "",
-      });
-    }
-
-    return results;
-  } catch {
-    return [];
-  }
+function isFinancialQuery(query: string): boolean {
+  return /\b(etf|stock|fund|ticker|share|equity|bond|index|nasdaq|nyse|s&p|dow|ftse|nifty|sensex|morningstar|vanguard|ishares|return|yield|dividend|portfolio|market cap)\b/i.test(query);
 }
 
 /**
  * Search via DuckDuckGo Instant Answer API.
- * Returns instant answers, related topics — not full search results.
- * Always works, no CAPTCHA, but limited scope.
+ * Works from CF Workers — no bot detection. Limited to instant answers / related topics.
  */
 async function searchDDGInstant(query: string): Promise<SearchResult[]> {
   try {
@@ -222,7 +135,6 @@ async function searchDDGInstant(query: string): Promise<SearchResult[]> {
     const data = (await res.json()) as {
       Abstract?: string;
       AbstractURL?: string;
-      AbstractSource?: string;
       Heading?: string;
       RelatedTopics?: Array<{
         Text?: string;
@@ -234,7 +146,6 @@ async function searchDDGInstant(query: string): Promise<SearchResult[]> {
 
     const results: SearchResult[] = [];
 
-    // Add abstract if available
     if (data.Abstract && data.AbstractURL) {
       results.push({
         title: data.Heading || query,
@@ -243,7 +154,6 @@ async function searchDDGInstant(query: string): Promise<SearchResult[]> {
       });
     }
 
-    // Add direct results
     if (data.Results) {
       for (const r of data.Results) {
         if (r.Text && r.FirstURL) {
@@ -256,7 +166,6 @@ async function searchDDGInstant(query: string): Promise<SearchResult[]> {
       }
     }
 
-    // Add related topics
     if (data.RelatedTopics) {
       for (const topic of data.RelatedTopics) {
         if (results.length >= 10) break;
@@ -267,7 +176,6 @@ async function searchDDGInstant(query: string): Promise<SearchResult[]> {
             snippet: topic.Text,
           });
         }
-        // Handle nested topic groups
         if (topic.Topics) {
           for (const sub of topic.Topics) {
             if (results.length >= 10) break;
@@ -289,43 +197,143 @@ async function searchDDGInstant(query: string): Promise<SearchResult[]> {
   }
 }
 
-/** Decode DuckDuckGo redirect URLs (//duckduckgo.com/l/?uddg=...) */
-function decodeDDGUrl(url: string): string {
-  if (url.includes("duckduckgo.com/l/?")) {
-    try {
-      const parsed = new URL(
-        url.startsWith("//") ? `https:${url}` : url,
-      );
-      const uddg = parsed.searchParams.get("uddg");
-      if (uddg) return decodeURIComponent(uddg);
-    } catch {
-      // Fall through
-    }
+/**
+ * Search via Wikipedia API.
+ * Reliable from CF Workers — no rate limiting, no bot detection.
+ * Great for factual, entity, and concept queries.
+ */
+async function searchWikipedia(
+  query: string,
+  count: number,
+): Promise<SearchResult[]> {
+  try {
+    const res = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&srlimit=${count}&srprop=snippet`,
+      {
+        headers: {
+          "User-Agent": "GaiGentic-Agent/1.0 (https://hub.gaigentic.ai)",
+        },
+      },
+    );
+
+    if (!res.ok) return [];
+
+    const data = (await res.json()) as {
+      query: {
+        search: Array<{
+          title: string;
+          snippet: string;
+          pageid: number;
+        }>;
+      };
+    };
+
+    return data.query.search.map((item) => ({
+      title: item.title,
+      url: `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title.replace(/ /g, "_"))}`,
+      snippet: stripHtml(item.snippet),
+    }));
+  } catch {
+    return [];
   }
-  return url.startsWith("//") ? `https:${url}` : url;
+}
+
+/**
+ * Search via Yahoo Finance API.
+ * Free, no API key, works from CF Workers. Returns stock/ETF/fund data.
+ */
+async function searchYahooFinance(query: string): Promise<SearchResult[]> {
+  try {
+    // Extract potential ticker symbols
+    const words = query.toUpperCase().split(/\s+/);
+    const potentialTickers = words.filter((w) => /^[A-Z]{1,6}(\.[A-Z]{1,2})?$/.test(w));
+    const searchTerm = potentialTickers.length > 0 ? potentialTickers[0] : query.split(/\s+/).slice(0, 2).join(" ");
+
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(searchTerm)}&quotesCount=5&newsCount=3`,
+      {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        },
+      },
+    );
+
+    if (!res.ok) return [];
+
+    const data = (await res.json()) as {
+      quotes?: Array<{
+        symbol: string;
+        longname?: string;
+        shortname?: string;
+        exchDisp?: string;
+        typeDisp?: string;
+      }>;
+      news?: Array<{
+        title: string;
+        link: string;
+        publisher?: string;
+      }>;
+    };
+
+    const results: SearchResult[] = [];
+
+    // Add quote results
+    if (data.quotes) {
+      for (const q of data.quotes.slice(0, 3)) {
+        const name = q.longname || q.shortname || q.symbol;
+        results.push({
+          title: `${q.symbol} — ${name}`,
+          url: `https://finance.yahoo.com/quote/${q.symbol}`,
+          snippet: `${q.typeDisp || "Security"} on ${q.exchDisp || "Exchange"}. View real-time price, charts, and analysis for ${name}.`,
+        });
+      }
+    }
+
+    // Add news results
+    if (data.news) {
+      for (const n of data.news.slice(0, 3)) {
+        if (n.title && n.link) {
+          results.push({
+            title: n.title,
+            url: n.link,
+            snippet: n.publisher ? `Source: ${n.publisher}` : "",
+          });
+        }
+      }
+    }
+
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+/** Deduplicate results by URL */
+function deduplicateResults(results: SearchResult[]): SearchResult[] {
+  const seen = new Set<string>();
+  return results.filter((r) => {
+    const key = r.url.toLowerCase().replace(/\/+$/, "");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /**
  * Simplify a complex query by stripping qualifiers, dates, and specifics.
- * E.g. "IEEM ETF 1-year return Morningstar rating 2025" → "IEEM ETF"
  */
 function simplifyQuery(query: string): string {
   let simplified = query
-    // Remove year references
     .replace(/\b20\d{2}\b/g, "")
-    // Remove common qualifiers
     .replace(
       /\b(latest|current|recent|best|top|new|updated|rating|review|analysis|report|data|statistics|morningstar|performance|return|yield|price|cost|fee|expense ratio)\b/gi,
       "",
     )
-    // Remove number-based qualifiers like "1-year", "5-star", "10%"
     .replace(/\b\d+[-–]\s*(year|month|day|week|star|yr|mo)\b/gi, "")
     .replace(/\b\d+%/g, "")
-    // Collapse whitespace
     .replace(/\s+/g, " ")
     .trim();
 
-  // If we stripped too much (< 3 chars), just take the first 2-3 words of original
   if (simplified.length < 3) {
     simplified = query.split(/\s+/).slice(0, 3).join(" ");
   }
