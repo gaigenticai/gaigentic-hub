@@ -1583,7 +1583,7 @@ export default function AgentBuilder() {
       if (!agent && newMessages.length >= 2 && !fullText.includes(AGENT_UPDATE_OPEN)) {
         setIsStreaming(true);
         setStreamingText("");
-        addAudit("system", "Auto-extracting", "LLM didn't output JSON block — retrying with extraction endpoint");
+        addAudit("phase_change", "Auto-extracting", "LLM didn't output JSON block — retrying with extraction endpoint");
         try {
           const token = getSessionToken();
           const extractRes = await fetch(`${STREAM_API_BASE}/builder/extract`, {
@@ -1632,7 +1632,7 @@ export default function AgentBuilder() {
             const { chatText: retryChatText, agent: retryAgent } = extractAgentUpdate(retryFull);
             if (retryAgent) {
               setAgentDef(retryAgent);
-              addAudit("system", "Extraction succeeded", `Agent: ${retryAgent.metadata?.name || "unnamed"}`);
+              addAudit("phase_change", "Extraction succeeded", `Agent: ${retryAgent.metadata?.name || "unnamed"}`);
             }
             if (retryChatText) {
               setMessages((prev) => {
