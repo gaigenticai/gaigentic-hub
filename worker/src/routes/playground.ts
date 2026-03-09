@@ -284,8 +284,18 @@ playground.post("/execute", async (c) => {
   const toolInstructions = buildToolInstructions(agentTools);
 
   // Build messages
+  const NO_CLARIFICATION_GUARDRAIL = `
+
+<guardrail_no_clarification>
+CRITICAL: This is a single-shot execution environment. The user CANNOT reply or provide follow-up.
+NEVER ask the user for clarification, confirmation, or additional information.
+If information is ambiguous or missing, make the BEST reasonable assumption based on domain expertise and proceed with a definitive analysis.
+State your assumptions clearly in the output, but ALWAYS deliver a complete, actionable response.
+</guardrail_no_clarification>`;
+
   const systemPrompt =
     agent.system_prompt +
+    NO_CLARIFICATION_GUARDRAIL +
     ragContext +
     documentContext +
     "\n\n" +
