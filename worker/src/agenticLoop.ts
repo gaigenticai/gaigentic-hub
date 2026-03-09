@@ -257,6 +257,21 @@ export function runAgenticLoop(params: AgenticLoopParams): ReadableStream {
           allSteps.push({ ...reasoningStep });
 
           if (!toolCall) {
+            // Check if the model WANTED to use tools but didn't format the call
+            // (common with weaker models — they narrate "I will search..." instead of calling)
+            const narratesToolIntent = /\b(i will|i'll|let me|proceeding|i'?m going to|starting by)\b.{0,40}\b(search|retrieve|fetch|look up|query|check|analyze|use|call)\b/i.test(responseText);
+            if (narratesToolIntent && iteration === 1 && allSteps.filter((s) => s.step_type !== "llm_reasoning").length === 0) {
+              // First iteration, model described intent but didn't call a tool — nudge it
+              conversationMessages.push(
+                { role: "assistant", content: responseText },
+                {
+                  role: "user",
+                  content: `You described what you plan to do, but you did NOT actually call a tool. You MUST use the |||TOOL_CALL||| format. For example, to search the web:\n\n|||TOOL_CALL|||\n{"tool": "web_search", "params": {"query": "your search query here"}}\n|||END_TOOL_CALL|||\n\nAvailable tools: ${tools.map((t) => t.name).join(", ")}. Now please CALL a tool using the exact format above.`,
+                },
+              );
+              continue;
+            }
+
             // No tool call — this is the final response.
             // Emit decision step
             stepCounter++;
