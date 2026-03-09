@@ -137,7 +137,7 @@ class OpenAIProvider implements LLMProvider {
         Authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify({
-        model: params.model || "gpt-4.1-mini",
+        model: params.model || "gpt-4.1-nano",
         messages: params.messages,
         max_tokens: params.max_tokens || 2048,
         temperature: params.temperature ?? 0.7,
@@ -150,7 +150,7 @@ class OpenAIProvider implements LLMProvider {
       throw new Error(`OpenAI error (${res.status}): ${err}`);
     }
 
-    return collectOpenAIStream(res.body!, params.model || "gpt-4.1-mini");
+    return collectOpenAIStream(res.body!, params.model || "gpt-4.1-nano");
   }
 
   async stream(params: ChatParams): Promise<ReadableStream> {
@@ -473,7 +473,7 @@ export function getBuilderProvider(env: Env): LLMProvider {
 export function getDefaultModel(provider: string): string {
   switch (provider) {
     case "openai":
-      return "gpt-4.1-mini";
+      return "gpt-4.1-nano";
     case "anthropic":
       return "claude-sonnet-4-6";
     case "workers-ai":
