@@ -25,7 +25,7 @@ ARCHITECTURE: Agents have Skills (reusable capabilities) which use Tools (API fu
 AVAILABLE SKILLS:
 ${skillCatalog}
 
-AVAILABLE TOOLS:
+AVAILABLE TOOLS (use ONLY these exact names in the "tools" array — never invent tool names):
 rag_query, calculate, data_validation, document_analysis, regulatory_lookup, credit_assessment, collections_scoring, escalate_to_agent, verify_us_entity, sanctions_screener, burner_email_detector, bin_iin_lookup, ecfr_lookup, macroeconomic_indicator, amortization_restructurer, rss_news_parser, web_search, browse_url
 
 SYSTEM PROMPT SECTIONS (build these for the agent):

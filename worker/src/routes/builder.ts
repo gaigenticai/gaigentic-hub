@@ -294,6 +294,14 @@ builder.post("/save", async (c) => {
     return c.json({ error: "Agent name and slug are required" }, 400);
   }
 
+  // Validate tools — filter out any invented tool names
+  const validToolNames = new Set(getAllTools().map((t) => t.name));
+  const validatedTools = (body.tools || []).filter((t) => validToolNames.has(t));
+  if (body.tools && body.tools.length > 0 && validatedTools.length === 0) {
+    // All tools were invalid — pick reasonable defaults based on category
+    validatedTools.push("calculate", "data_validation", "rag_query");
+  }
+
   // Check slug uniqueness
   const existing = await c.env.DB.prepare("SELECT id FROM agents WHERE slug = ?")
     .bind(body.metadata.slug)
@@ -460,7 +468,7 @@ builder.post("/save", async (c) => {
       JSON.stringify(body.guardrails_config),
       JSON.stringify(normalizedCapabilities),
       JSON.stringify(body.jurisdictions),
-      JSON.stringify(body.tools),
+      JSON.stringify(validatedTools),
     )
     .run();
 
