@@ -27,27 +27,14 @@ interface ModelOption {
 
 const OPENAI_MODELS: ModelOption[] = [
   // Budget
-  { id: "gpt-4.1-nano", name: "GPT-4.1 Nano", tier: "budget", description: "Fastest, cheapest — great for most tasks" },
-  { id: "gpt-4o-mini", name: "GPT-4o Mini", tier: "budget", description: "Fast and affordable multimodal" },
-  { id: "gpt-5-nano", name: "GPT-5 Nano", tier: "budget", description: "Reasoning model, cheapest GPT-5" },
+  { id: "gpt-5-nano", name: "GPT-5 Nano", tier: "budget", description: "Fastest, cheapest GPT-5" },
   // Standard
-  { id: "gpt-4.1-mini", name: "GPT-4.1 Mini", tier: "standard", description: "Balanced speed and quality" },
-  { id: "gpt-4o", name: "GPT-4o", tier: "standard", description: "Multimodal, good all-rounder" },
-  { id: "gpt-5-mini", name: "GPT-5 Mini", tier: "standard", description: "Reasoning model, balanced" },
+  { id: "gpt-5-mini", name: "GPT-5 Mini", tier: "standard", description: "Balanced speed and quality" },
   // Premium
-  { id: "gpt-4.1", name: "GPT-4.1", tier: "premium", description: "Best non-reasoning OpenAI model" },
-  { id: "gpt-5", name: "GPT-5", tier: "premium", description: "Advanced reasoning" },
-  { id: "gpt-5.2", name: "GPT-5.2", tier: "premium", description: "Latest flagship" },
-  { id: "gpt-5.4", name: "GPT-5.4", tier: "premium", description: "Newest, 1M context, computer use" },
-  { id: "gpt-5-pro", name: "GPT-5 Pro", tier: "premium", description: "Maximum quality" },
-  { id: "gpt-5.2-pro", name: "GPT-5.2 Pro", tier: "premium", description: "Latest pro tier" },
+  { id: "gpt-5.4", name: "GPT-5.4", tier: "premium", description: "Latest flagship, 1M context" },
   { id: "gpt-5.4-pro", name: "GPT-5.4 Pro", tier: "premium", description: "Most capable, most expensive" },
   // Reasoning
-  { id: "o3-mini", name: "o3-mini", tier: "reasoning", description: "Small reasoning, math/code focused" },
-  { id: "o3", name: "o3", tier: "reasoning", description: "Strong reasoning" },
-  { id: "o4-mini", name: "o4-mini", tier: "reasoning", description: "Latest small reasoning model" },
-  { id: "o1", name: "o1", tier: "reasoning", description: "Original reasoning model" },
-  { id: "o1-pro", name: "o1-pro", tier: "reasoning", description: "Pro reasoning" },
+  { id: "o4-mini", name: "o4-mini", tier: "reasoning", description: "Latest reasoning model, math/code focused" },
 ];
 
 const ANTHROPIC_MODELS: ModelOption[] = [
@@ -70,7 +57,7 @@ function getModelsForProvider(provider: LLMProvider): ModelOption[] {
 }
 
 function getDefaultModel(provider: LLMProvider): string {
-  if (provider === "openai") return "gpt-4.1-nano";
+  if (provider === "openai") return "gpt-5-nano";
   if (provider === "anthropic") return "claude-sonnet-4-6";
   return "";
 }
