@@ -1083,18 +1083,56 @@ const PROVIDERS = [
 
 const SESSION_KEY_PROVIDER = "builder_ai_provider";
 const SESSION_KEY_APIKEY = "builder_ai_key";
+const SESSION_KEY_MODEL = "builder_ai_model";
+
+interface ModelOption {
+  id: string;
+  name: string;
+  tier: string;
+  description: string;
+}
+
+const OPENAI_MODELS: ModelOption[] = [
+  { id: "gpt-5-nano", name: "GPT-5 Nano", tier: "Budget", description: "Fastest, cheapest GPT-5" },
+  { id: "gpt-5-mini", name: "GPT-5 Mini", tier: "Standard", description: "Balanced speed and quality" },
+  { id: "gpt-5.4", name: "GPT-5.4", tier: "Premium", description: "Latest flagship, 1M context" },
+  { id: "gpt-5.4-pro", name: "GPT-5.4 Pro", tier: "Premium", description: "Most capable, most expensive" },
+  { id: "o4-mini", name: "o4-mini", tier: "Reasoning", description: "Latest reasoning model" },
+];
+
+const ANTHROPIC_MODELS: ModelOption[] = [
+  { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5", tier: "Budget", description: "Fastest Claude" },
+  { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", tier: "Standard", description: "Best balance" },
+  { id: "claude-opus-4-6", name: "Claude Opus 4.6", tier: "Premium", description: "Most capable Claude" },
+];
+
+function getBuilderModels(provider: string): ModelOption[] {
+  if (provider === "openai") return OPENAI_MODELS;
+  if (provider === "anthropic") return ANTHROPIC_MODELS;
+  return [];
+}
+
+function getDefaultBuilderModel(provider: string): string {
+  if (provider === "openai") return "gpt-5-nano";
+  if (provider === "anthropic") return "claude-sonnet-4-6";
+  return "";
+}
 
 function AIProviderBanner({
   provider,
   apiKey,
+  model,
   onProviderChange,
   onApiKeyChange,
+  onModelChange,
   onClear,
 }: {
   provider: string;
   apiKey: string;
+  model: string;
   onProviderChange: (p: string) => void;
   onApiKeyChange: (k: string) => void;
+  onModelChange: (m: string) => void;
   onClear: () => void;
 }) {
   const [expanded, setExpanded] = useState(!apiKey);
@@ -1231,6 +1269,23 @@ function AIProviderBanner({
                 </div>
               </div>
 
+              {/* Model selector — appears when API key is entered for OpenAI/Anthropic */}
+              {apiKey.trim() && getBuilderModels(provider).length > 0 && (
+                <div>
+                  <select
+                    value={model || getDefaultBuilderModel(provider)}
+                    onChange={(e) => onModelChange(e.target.value)}
+                    className="w-full rounded-lg border border-ink-200 bg-white px-2.5 py-2 text-xs text-ink-700 focus:border-cta focus:outline-none focus:ring-1 focus:ring-cta/30 appearance-none"
+                  >
+                    {getBuilderModels(provider).map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} — {m.description}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Security info */}
               <div className="flex items-start gap-2 rounded-lg bg-white/60 border border-ink-100 px-3 py-2">
                 <Info className="h-3.5 w-3.5 text-cobalt shrink-0 mt-0.5" />
@@ -1277,6 +1332,7 @@ export default function AgentBuilder() {
   const [chipSelections, setChipSelections] = useState<Record<string, string[]>>({});
   const [userProvider, setUserProvider] = useState(() => sessionStorage.getItem(SESSION_KEY_PROVIDER) || "openai");
   const [userApiKey, setUserApiKey] = useState(() => sessionStorage.getItem(SESSION_KEY_APIKEY) || "");
+  const [userModel, setUserModel] = useState(() => sessionStorage.getItem(SESSION_KEY_MODEL) || "");
   const [showConfetti, setShowConfetti] = useState(false);
   const confettiShownRef = useRef(false);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
@@ -1326,7 +1382,9 @@ export default function AgentBuilder() {
     if (userProvider) sessionStorage.setItem(SESSION_KEY_PROVIDER, userProvider);
     if (userApiKey) sessionStorage.setItem(SESSION_KEY_APIKEY, userApiKey);
     else sessionStorage.removeItem(SESSION_KEY_APIKEY);
-  }, [userProvider, userApiKey]);
+    if (userModel) sessionStorage.setItem(SESSION_KEY_MODEL, userModel);
+    else sessionStorage.removeItem(SESSION_KEY_MODEL);
+  }, [userProvider, userApiKey, userModel]);
 
   const handleClearKey = useCallback(() => {
     setUserApiKey("");
@@ -1487,7 +1545,7 @@ export default function AgentBuilder() {
         },
         body: JSON.stringify({
           messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
-          ...(userApiKey.trim() ? { provider: userProvider, user_api_key: userApiKey.trim() } : {}),
+          ...(userApiKey.trim() ? { provider: userProvider, user_api_key: userApiKey.trim(), ...(userModel ? { model: userModel } : {}) } : {}),
         }),
         signal: controller.signal,
       });
@@ -1578,7 +1636,7 @@ export default function AgentBuilder() {
             credentials: "include",
             body: JSON.stringify({
               messages: [...newMessages, { role: "assistant", content: displayText }].map((m) => ({ role: m.role, content: m.content })),
-              ...(userApiKey.trim() ? { provider: userProvider, user_api_key: userApiKey.trim() } : {}),
+              ...(userApiKey.trim() ? { provider: userProvider, user_api_key: userApiKey.trim(), ...(userModel ? { model: userModel } : {}) } : {}),
             }),
             signal: abortRef.current?.signal,
           });
@@ -1836,8 +1894,10 @@ export default function AgentBuilder() {
           <AIProviderBanner
             provider={userProvider}
             apiKey={userApiKey}
-            onProviderChange={setUserProvider}
+            model={userModel}
+            onProviderChange={(p) => { setUserProvider(p); setUserModel(getDefaultBuilderModel(p)); }}
             onApiKeyChange={setUserApiKey}
+            onModelChange={setUserModel}
             onClear={handleClearKey}
           />
         </div>
