@@ -475,9 +475,9 @@ export function getFallbackProvider(env: Env): LLMProvider {
   return new WorkersAIProvider(env.AI);
 }
 
-/** Builder always uses Workers AI (Llama 3.3 70B) — reliable structured output */
+/** Builder uses z.ai (GLM) with Workers AI fallback — needs strong structured JSON output */
 export function getBuilderProvider(env: Env): LLMProvider {
-  return new WorkersAIProvider(env.AI);
+  return new ZaiWithFallbackProvider(env.ZAI_API_KEY, env.ZAI_BASE_URL, env.AI);
 }
 
 export function getDefaultModel(provider: string): string {

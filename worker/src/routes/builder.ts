@@ -103,15 +103,15 @@ builder.post("/chat", async (c) => {
     required_tools: JSON.parse(s.required_tools || "[]"),
   }));
 
-  // Resolve LLM provider — Builder defaults to Workers AI (Llama 3.3 70B)
-  // for reliable structured JSON output. BYOK users can override.
-  let providerName = body.provider || "workers-ai";
+  // Resolve LLM provider — Builder defaults to z.ai (GLM) with Workers AI fallback.
+  // BYOK users can override with their own key.
+  let providerName = body.provider || "zai";
   let providerApiKey = body.user_api_key || "";
 
   if (providerApiKey) {
     // User provided their own key — use their chosen provider
     providerName = body.provider || "openai";
-  } else if (body.provider && body.provider !== "workers-ai") {
+  } else if (body.provider && body.provider !== "zai" && body.provider !== "workers-ai") {
     // User selected a non-default provider — check for saved key
     const config = await c.env.DB.prepare(
       "SELECT * FROM llm_configs WHERE user_id = ? AND provider = ? LIMIT 1",
@@ -131,7 +131,7 @@ builder.post("/chat", async (c) => {
 
   // Use user-selected model, or provider default. For BYOK OpenAI, enforce a minimum
   // capable model — builder needs strong structured JSON output
-  let model = body.model || getDefaultModel(providerName);
+  let model = body.model || getDefaultModel(providerApiKey ? providerName : "zai");
   if (providerApiKey && providerName === "openai") {
     // Builder requires strong models for structured output — upgrade weak ones
     const WEAK_FOR_BUILDER = ["gpt-4.1-nano", "gpt-5-nano", "gpt-4o-mini"];
@@ -221,15 +221,15 @@ JSON template:
   // Only send last 6 messages to keep context small
   const recentMessages = body.messages.slice(-6);
 
-  // Extract uses Workers AI by default, or user's BYOK key
+  // Extract uses z.ai by default (with Workers AI fallback), or user's BYOK key
   const providerApiKey = body.user_api_key || "";
-  const providerName = providerApiKey ? (body.provider || "openai") : "workers-ai";
+  const providerName = providerApiKey ? (body.provider || "openai") : "zai";
 
   const provider = providerApiKey
     ? createProvider(providerName, providerApiKey, c.env)
     : getBuilderProvider(c.env);
 
-  let extractModel = body.model || getDefaultModel(providerName);
+  let extractModel = body.model || getDefaultModel(providerApiKey ? providerName : "zai");
   // Upgrade weak models for extraction — needs reliable JSON
   if (providerApiKey && providerName === "openai") {
     const WEAK = ["gpt-4.1-nano", "gpt-5-nano", "gpt-4o-mini"];
