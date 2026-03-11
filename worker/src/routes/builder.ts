@@ -63,6 +63,7 @@ builder.post("/chat", async (c) => {
     messages: Array<{ role: string; content: string }>;
     provider?: string;
     user_api_key?: string;
+    model?: string;
   }>();
 
   if (!body.messages || !Array.isArray(body.messages) || body.messages.length === 0) {
@@ -128,7 +129,16 @@ builder.post("/chat", async (c) => {
     ? createProvider(providerName, providerApiKey, c.env)
     : getBuilderProvider(c.env);
 
-  const model = getDefaultModel(providerName);
+  // Use user-selected model, or provider default. For BYOK OpenAI, enforce a minimum
+  // capable model — builder needs strong structured JSON output
+  let model = body.model || getDefaultModel(providerName);
+  if (providerApiKey && providerName === "openai") {
+    // Builder requires strong models for structured output — upgrade weak ones
+    const WEAK_FOR_BUILDER = ["gpt-4.1-nano", "gpt-5-nano", "gpt-4o-mini"];
+    if (WEAK_FOR_BUILDER.includes(model)) {
+      model = "gpt-5-mini";
+    }
+  }
 
   // Build system prompt with current skills
   const systemPrompt = buildBuilderPrompt(skills);
@@ -175,6 +185,7 @@ builder.post("/extract", async (c) => {
     messages: Array<{ role: string; content: string }>;
     provider?: string;
     user_api_key?: string;
+    model?: string;
   }>();
 
   if (!body.messages?.length) return c.json({ error: "messages required" }, 400);
@@ -210,7 +221,7 @@ JSON template:
   // Only send last 6 messages to keep context small
   const recentMessages = body.messages.slice(-6);
 
-  // Extract always uses Workers AI — fast, reliable, structured output
+  // Extract uses Workers AI by default, or user's BYOK key
   const providerApiKey = body.user_api_key || "";
   const providerName = providerApiKey ? (body.provider || "openai") : "workers-ai";
 
@@ -218,9 +229,16 @@ JSON template:
     ? createProvider(providerName, providerApiKey, c.env)
     : getBuilderProvider(c.env);
 
+  let extractModel = body.model || getDefaultModel(providerName);
+  // Upgrade weak models for extraction — needs reliable JSON
+  if (providerApiKey && providerName === "openai") {
+    const WEAK = ["gpt-4.1-nano", "gpt-5-nano", "gpt-4o-mini"];
+    if (WEAK.includes(extractModel)) extractModel = "gpt-5-mini";
+  }
+
   try {
     const stream = await provider.stream({
-      model: getDefaultModel(providerName),
+      model: extractModel,
       messages: [
         { role: "system" as const, content: extractPrompt },
         ...recentMessages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
