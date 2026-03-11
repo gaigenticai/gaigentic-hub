@@ -227,8 +227,14 @@ playground.post("/execute", async (c) => {
   let ragContext = "";
   let ragSources: Array<{ source_name: string; source_type: string; score: number }> = [];
   try {
+    // Convert structured input to natural language for better embedding match
+    const ragQuery = typeof body.input === "object" && body.input !== null
+      ? Object.entries(body.input as Record<string, unknown>)
+          .map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`)
+          .join(", ")
+      : String(body.input);
     const ragResults = await queryKnowledge(c.env, {
-      query: JSON.stringify(body.input),
+      query: ragQuery,
       agentId: agent.id,
       topK: 5,
     });
@@ -268,12 +274,16 @@ playground.post("/execute", async (c) => {
       }>();
 
     if (docs.results.length > 0) {
+      const MAX_DOC_CHARS = 5000; // Per document — prevent token overflow
       const docTexts = docs.results
         .map((d) => {
           // Prefer whichever extraction is longer (more complete)
           const server = d.server_extracted_text || "";
           const client = d.client_extracted_text || "";
-          const text = server.length >= client.length ? server : client;
+          let text = server.length >= client.length ? server : client;
+          if (text.length > MAX_DOC_CHARS) {
+            text = text.slice(0, MAX_DOC_CHARS) + `\n... [truncated — ${text.length} total chars]`;
+          }
           return `Document: ${d.file_name}\n---\n${text || "(no text extracted)"}`;
         })
         .join("\n---\n");
@@ -365,9 +375,10 @@ State your assumptions clearly in the output, but ALWAYS deliver a complete, act
 
   // Auto-upgrade nano models for agentic tool-calling (too weak for structured output)
   if (agentTools.length > 0) {
-    const NANO_MODELS = ["gpt-4.1-nano", "gpt-4.1-nano-2025-04-14", "gpt-4o-mini", "gpt-4o-mini-2024-07-18"];
-    if (NANO_MODELS.includes(actualModel)) {
-      actualModel = "gpt-4.1-mini";
+    // Models too weak for reliable structured tool calling — auto-upgrade
+    const WEAK_TOOL_MODELS = ["gpt-4.1-nano", "gpt-4.1-nano-2025-04-14", "gpt-4o-mini", "gpt-4o-mini-2024-07-18", "gpt-5-nano"];
+    if (WEAK_TOOL_MODELS.includes(actualModel)) {
+      actualModel = "gpt-5-mini"; // Upgrade to smallest model that handles tools reliably
     }
   }
 
@@ -385,14 +396,14 @@ State your assumptions clearly in the output, but ALWAYS deliver a complete, act
       },
       env: c.env,
       provider,
-      model,
+      model: actualModel,
       maxTokens,
       temperature,
     });
   } else {
     // Single-shot: existing streaming behavior
     stream = await provider.stream({
-      model,
+      model: actualModel,
       messages,
       max_tokens: maxTokens,
       temperature,

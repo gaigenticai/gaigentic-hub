@@ -102,7 +102,8 @@ function parseToolCall(text: string): {
 
   // Strategy 3: No markers at all — look for raw JSON with "tool" key (last resort for very weak models)
   if (openIdx === -1) {
-    const rawJsonMatch = text.match(/\{"tool"\s*:\s*"(\w+)"\s*,\s*"params"\s*:\s*\{[^}]*\}\s*\}/);
+    // Flexible: match any JSON object containing a "tool" key, including nested params
+    const rawJsonMatch = text.match(/\{\s*"tool"\s*:\s*"[\w_]+"\s*,\s*"params"\s*:\s*\{[\s\S]*?\}\s*\}/);
     if (rawJsonMatch) {
       try {
         const parsed = JSON.parse(rawJsonMatch[0]);
@@ -259,14 +260,17 @@ export function runAgenticLoop(params: AgenticLoopParams): ReadableStream {
           if (!toolCall) {
             // Check if the model WANTED to use tools but didn't format the call
             // (common with weaker models — they narrate "I will search..." instead of calling)
-            const narratesToolIntent = /\b(i will|i'll|let me|proceeding|i'?m going to|starting by)\b.{0,40}\b(search|retrieve|fetch|look up|query|check|analyze|use|call)\b/i.test(responseText);
-            if (narratesToolIntent && iteration === 1 && allSteps.filter((s) => s.step_type !== "llm_reasoning").length === 0) {
-              // First iteration, model described intent but didn't call a tool — nudge it
+            const narratesToolIntent = /\b(i will|i'll|let me|proceeding|i'?m going to|starting by|first,? i)\b.{0,60}\b(search|retrieve|fetch|look up|query|check|analyze|use|call|verify|screen|assess|calculate)\b/i.test(responseText);
+            const noToolCallsYet = allSteps.filter((s) => s.step_type !== "llm_reasoning").length === 0;
+            if (narratesToolIntent && noToolCallsYet && iteration <= 3) {
+              // Model described intent but didn't call a tool — nudge it (up to 3 tries)
+              const exampleTool = tools[0]?.name || "web_search";
+              const exampleParam = Object.keys(tools[0]?.parameters || {})[0] || "query";
               conversationMessages.push(
                 { role: "assistant", content: responseText },
                 {
                   role: "user",
-                  content: `You described what you plan to do, but you did NOT actually call a tool. You MUST use the |||TOOL_CALL||| format. For example, to search the web:\n\n|||TOOL_CALL|||\n{"tool": "web_search", "params": {"query": "your search query here"}}\n|||END_TOOL_CALL|||\n\nAvailable tools: ${tools.map((t) => t.name).join(", ")}. Now please CALL a tool using the exact format above.`,
+                  content: `STOP. You described what you plan to do, but you did NOT actually call a tool. You MUST output a tool call block RIGHT NOW. Do not explain, do not plan — just call the tool.\n\nFormat:\n|||TOOL_CALL|||\n{"tool": "${exampleTool}", "params": {"${exampleParam}": "your value"}}\n|||END_TOOL_CALL|||\n\nAvailable tools: ${tools.map((t) => t.name).join(", ")}.\n\nOUTPUT THE TOOL CALL BLOCK NOW:`,
                 },
               );
               continue;
@@ -329,11 +333,17 @@ export function runAgenticLoop(params: AgenticLoopParams): ReadableStream {
           };
           emitStep(controller, encoder, toolStep);
 
-          // Execute
+          // Execute with per-tool timeout (30s max)
+          const TOOL_TIMEOUT_MS = 30_000;
           const toolStart = Date.now();
           let result;
           try {
-            result = await toolDef.execute(toolCall.params, env, toolContext);
+            result = await Promise.race([
+              toolDef.execute(toolCall.params, env, toolContext),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error(`Tool ${toolCall.tool} timed out after 30s`)), TOOL_TIMEOUT_MS),
+              ),
+            ]);
           } catch (err) {
             result = {
               success: false,
