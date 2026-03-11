@@ -130,6 +130,16 @@ class OpenAIProvider implements LLMProvider {
   async chat(params: ChatParams): Promise<ChatResponse> {
     // Use streaming internally to avoid Cloudflare 524 timeout on large prompts.
     // Streaming gets first byte fast; we collect all tokens server-side.
+    const model = params.model || "gpt-4.1-nano";
+
+    // GPT-5 series and o-series reasoning models require max_completion_tokens
+    // instead of max_tokens, and don't support custom temperature
+    const isReasoningModel = /^(gpt-5|o[1-9])/.test(model);
+    const tokenParam = isReasoningModel
+      ? { max_completion_tokens: params.max_tokens || 4096 }
+      : { max_tokens: params.max_tokens || 2048 };
+    const tempParam = isReasoningModel ? {} : { temperature: params.temperature ?? 0.7 };
+
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -137,10 +147,10 @@ class OpenAIProvider implements LLMProvider {
         Authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify({
-        model: params.model || "gpt-4.1-nano",
+        model,
         messages: params.messages,
-        max_tokens: params.max_tokens || 2048,
-        temperature: params.temperature ?? 0.7,
+        ...tokenParam,
+        ...tempParam,
         stream: true,
       }),
     });
@@ -150,7 +160,7 @@ class OpenAIProvider implements LLMProvider {
       throw new Error(`OpenAI error (${res.status}): ${err}`);
     }
 
-    return collectOpenAIStream(res.body!, params.model || "gpt-4.1-nano");
+    return collectOpenAIStream(res.body!, model);
   }
 
   async stream(params: ChatParams): Promise<ReadableStream> {
