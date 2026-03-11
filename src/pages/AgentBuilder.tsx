@@ -1872,7 +1872,9 @@ export default function AgentBuilder() {
   const effectiveQuickReplies = rawQuickReplies.filter(
     (qr) => !answeredLabels.has(qr.label.toLowerCase())
   );
-  const showQuickReplies = !isStreaming && effectiveQuickReplies.length > 0 && !!lastAssistantMsg;
+  // Only show quick replies during "gathering" phase (Step 1) — once the agent is being built, no more questions
+  const isGathering = !agentDef.status || agentDef.status === "gathering";
+  const showQuickReplies = !isStreaming && effectiveQuickReplies.length > 0 && !!lastAssistantMsg && isGathering;
 
   return (
     <PageTransition>
