@@ -130,7 +130,7 @@ class OpenAIProvider implements LLMProvider {
   async chat(params: ChatParams): Promise<ChatResponse> {
     // Use streaming internally to avoid Cloudflare 524 timeout on large prompts.
     // Streaming gets first byte fast; we collect all tokens server-side.
-    const model = params.model || "gpt-4.1-nano";
+    const model = params.model || "gpt-5-mini";
 
     // GPT-5 series and o-series reasoning models require max_completion_tokens
     // instead of max_tokens, and don't support custom temperature
@@ -483,7 +483,7 @@ export function getBuilderProvider(env: Env): LLMProvider {
 export function getDefaultModel(provider: string): string {
   switch (provider) {
     case "openai":
-      return "gpt-4.1-nano";
+      return "gpt-5-mini";
     case "anthropic":
       return "claude-sonnet-4-6";
     case "workers-ai":

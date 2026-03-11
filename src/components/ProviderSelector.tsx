@@ -26,10 +26,8 @@ interface ModelOption {
 }
 
 const OPENAI_MODELS: ModelOption[] = [
-  // Budget
-  { id: "gpt-5-nano", name: "GPT-5 Nano", tier: "budget", description: "Fastest, cheapest GPT-5" },
-  // Standard
-  { id: "gpt-5-mini", name: "GPT-5 Mini", tier: "standard", description: "Balanced speed and quality" },
+  // Standard — all models here support multi-step tool calling
+  { id: "gpt-5-mini", name: "GPT-5 Mini", tier: "standard", description: "Fast, reliable, great for most agents" },
   // Premium
   { id: "gpt-5.4", name: "GPT-5.4", tier: "premium", description: "Latest flagship, 1M context" },
   { id: "gpt-5.4-pro", name: "GPT-5.4 Pro", tier: "premium", description: "Most capable, most expensive" },
@@ -57,7 +55,7 @@ function getModelsForProvider(provider: LLMProvider): ModelOption[] {
 }
 
 function getDefaultModel(provider: LLMProvider): string {
-  if (provider === "openai") return "gpt-5-nano";
+  if (provider === "openai") return "gpt-5-mini";
   if (provider === "anthropic") return "claude-sonnet-4-6";
   return "";
 }

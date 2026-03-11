@@ -1093,8 +1093,7 @@ interface ModelOption {
 }
 
 const OPENAI_MODELS: ModelOption[] = [
-  { id: "gpt-5-nano", name: "GPT-5 Nano", tier: "Budget", description: "Fastest, cheapest GPT-5" },
-  { id: "gpt-5-mini", name: "GPT-5 Mini", tier: "Standard", description: "Balanced speed and quality" },
+  { id: "gpt-5-mini", name: "GPT-5 Mini", tier: "Standard", description: "Fast, reliable, great for most agents" },
   { id: "gpt-5.4", name: "GPT-5.4", tier: "Premium", description: "Latest flagship, 1M context" },
   { id: "gpt-5.4-pro", name: "GPT-5.4 Pro", tier: "Premium", description: "Most capable, most expensive" },
   { id: "o4-mini", name: "o4-mini", tier: "Reasoning", description: "Latest reasoning model" },
@@ -1113,7 +1112,7 @@ function getBuilderModels(provider: string): ModelOption[] {
 }
 
 function getDefaultBuilderModel(provider: string): string {
-  if (provider === "openai") return "gpt-5-nano";
+  if (provider === "openai") return "gpt-5-mini";
   if (provider === "anthropic") return "claude-sonnet-4-6";
   return "";
 }
