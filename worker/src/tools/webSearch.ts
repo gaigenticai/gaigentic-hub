@@ -38,7 +38,7 @@ export const webSearchTool: ToolDefinition = {
     },
   },
   async execute(params) {
-    const query = (params.query as string)?.trim();
+    let query = (params.query as string)?.trim();
     if (!query) {
       return {
         success: false,
@@ -46,6 +46,16 @@ export const webSearchTool: ToolDefinition = {
         summary: "Search query is required.",
       };
     }
+
+    // Strip search operators that DDG Instant Answer API doesn't support
+    // LLMs love generating site:, OR, AND operators — clean them out
+    query = query
+      .replace(/\bsite:\S+/gi, "")       // remove site:example.com
+      .replace(/\bOR\b/g, "")            // remove OR operators
+      .replace(/\bAND\b/g, "")           // remove AND operators
+      .replace(/[""]/g, '"')             // normalize smart quotes
+      .replace(/\s{2,}/g, " ")           // collapse whitespace
+      .trim();
 
     const count = Math.min(Math.max(Number(params.count) || 5, 1), 10);
 
