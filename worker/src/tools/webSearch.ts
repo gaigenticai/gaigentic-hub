@@ -1,13 +1,12 @@
 /**
  * Web Search Tool — Multi-strategy search that works from Cloudflare Workers.
  *
- * DDG blocks server-side requests (bot detection), so we use multiple
- * fallback strategies that reliably work from CF Workers:
- *
- * 1. DuckDuckGo Instant Answer API (limited but works)
- * 2. Wikipedia API (reliable, great for factual queries)
- * 3. Yahoo Finance search (for financial/ticker queries)
- * 4. Auto-simplify and retry
+ * Strategy priority:
+ * 1. DuckDuckGo HTML Lite — real search results, works from CF Workers
+ * 2. DuckDuckGo Instant Answer API — for quick factual answers
+ * 3. Wikipedia API — reliable for entities and concepts
+ * 4. Yahoo Finance — for financial/ticker queries
+ * 5. Auto-simplify and retry
  */
 
 import type { ToolDefinition } from "./types";
@@ -28,7 +27,7 @@ export const webSearchTool: ToolDefinition = {
     query: {
       type: "string",
       description:
-        "The search query — be specific for best results (e.g. 'India GST threshold 2025 freelancers' rather than just 'GST').",
+        "The search query — use plain natural language, no special operators. Be specific (e.g. 'Finexus Inc startup funding' not 'site:finexus.io').",
       required: true,
     },
     count: {
@@ -47,28 +46,51 @@ export const webSearchTool: ToolDefinition = {
       };
     }
 
-    // Strip search operators that DDG Instant Answer API doesn't support
-    // LLMs love generating site:, OR, AND operators — clean them out
+    // Strip search operators that don't work with our backends
     query = query
-      .replace(/\bsite:\S+/gi, "")       // remove site:example.com
-      .replace(/\bOR\b/g, "")            // remove OR operators
-      .replace(/\bAND\b/g, "")           // remove AND operators
-      .replace(/[""]/g, '"')             // normalize smart quotes
-      .replace(/\s{2,}/g, " ")           // collapse whitespace
+      .replace(/\bsite:\S+/gi, "")
+      .replace(/\bOR\b/g, " ")
+      .replace(/\bAND\b/g, " ")
+      .replace(/\binurl:\S+/gi, "")
+      .replace(/\bintitle:\S+/gi, "")
+      .replace(/[""]/g, '"')
+      .replace(/\s{2,}/g, " ")
       .trim();
 
     const count = Math.min(Math.max(Number(params.count) || 5, 1), 10);
 
-    // Run all strategies in parallel for speed
-    const [ddgResults, wikiResults, financeResults] = await Promise.all([
+    // Strategy 1: DDG HTML Lite — real search results
+    let ddgHtmlResults: SearchResult[] = [];
+    try {
+      ddgHtmlResults = await searchDDGHtml(query, count);
+    } catch {
+      // Fall through to other strategies
+    }
+
+    if (ddgHtmlResults.length >= count) {
+      return {
+        success: true,
+        data: {
+          query,
+          count: ddgHtmlResults.length,
+          results: ddgHtmlResults.slice(0, count),
+          source: "DuckDuckGo",
+        },
+        summary: `Found ${ddgHtmlResults.length} web results for '${query}'.`,
+      };
+    }
+
+    // Strategy 2+3+4: Run remaining strategies in parallel
+    const [ddgInstantResults, wikiResults, financeResults] = await Promise.all([
       searchDDGInstant(query),
       searchWikipedia(query, count),
       isFinancialQuery(query) ? searchYahooFinance(query) : Promise.resolve([]),
     ]);
 
-    // Merge and deduplicate results
+    // Merge all results (DDG HTML first as highest quality)
     const allResults = deduplicateResults([
-      ...ddgResults,
+      ...ddgHtmlResults,
+      ...ddgInstantResults,
       ...financeResults,
       ...wikiResults,
     ]).slice(0, count);
@@ -86,27 +108,26 @@ export const webSearchTool: ToolDefinition = {
       };
     }
 
-    // Auto-simplify and retry
+    // Auto-simplify and retry with DDG HTML
     const simplified = simplifyQuery(query);
-    if (simplified !== query) {
-      const [retryDDG, retryWiki] = await Promise.all([
-        searchDDGInstant(simplified),
-        searchWikipedia(simplified, count),
-      ]);
-
-      const retryResults = deduplicateResults([...retryDDG, ...retryWiki]).slice(0, count);
-      if (retryResults.length > 0) {
-        return {
-          success: true,
-          data: {
-            query: simplified,
-            original_query: query,
-            count: retryResults.length,
-            results: retryResults,
-            source: "Web Search (simplified query)",
-          },
-          summary: `No results for '${query}', but found ${retryResults.length} results for simplified query '${simplified}'.`,
-        };
+    if (simplified !== query && simplified.length > 2) {
+      try {
+        const retryResults = await searchDDGHtml(simplified, count);
+        if (retryResults.length > 0) {
+          return {
+            success: true,
+            data: {
+              query: simplified,
+              original_query: query,
+              count: retryResults.length,
+              results: retryResults.slice(0, count),
+              source: "DuckDuckGo (simplified query)",
+            },
+            summary: `No results for '${query}', but found ${retryResults.length} results for '${simplified}'.`,
+          };
+        }
+      } catch {
+        // Fall through
       }
     }
 
@@ -119,6 +140,94 @@ export const webSearchTool: ToolDefinition = {
 };
 
 /**
+ * Search via DuckDuckGo HTML Lite — the real deal.
+ * Returns actual search results, not just instant answers.
+ * Works from CF Workers with proper headers.
+ */
+async function searchDDGHtml(query: string, count: number): Promise<SearchResult[]> {
+  try {
+    const res = await fetch("https://lite.duckduckgo.com/lite/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        Accept: "text/html",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+      body: `q=${encodeURIComponent(query)}`,
+    });
+
+    if (!res.ok) return [];
+
+    const html = await res.text();
+    return parseDDGLiteHtml(html, count);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Parse DuckDuckGo Lite HTML response into structured results.
+ * DDG Lite uses a table-based layout with result links and snippets.
+ */
+function parseDDGLiteHtml(html: string, count: number): SearchResult[] {
+  const results: SearchResult[] = [];
+
+  // DDG Lite wraps each result in a table row with class "result-link" for the URL
+  // and "result-snippet" for the description
+  // Pattern: <a rel="nofollow" href="URL" class="result-link">TITLE</a>
+  // followed later by <td class="result-snippet">SNIPPET</td>
+
+  // Extract all result links
+  const linkRegex = /<a[^>]+class="result-link"[^>]*href="([^"]+)"[^>]*>([^<]*)<\/a>/gi;
+  const snippetRegex = /<td[^>]*class="result-snippet"[^>]*>([\s\S]*?)<\/td>/gi;
+
+  const links: Array<{ url: string; title: string }> = [];
+  let match;
+
+  while ((match = linkRegex.exec(html)) !== null) {
+    const url = match[1].replace(/&amp;/g, "&");
+    const title = stripHtml(match[2]).trim();
+    if (url && title && url.startsWith("http")) {
+      links.push({ url, title });
+    }
+  }
+
+  const snippets: string[] = [];
+  while ((match = snippetRegex.exec(html)) !== null) {
+    snippets.push(stripHtml(match[1]).trim());
+  }
+
+  // Combine links with snippets
+  for (let i = 0; i < Math.min(links.length, count); i++) {
+    results.push({
+      title: links[i].title,
+      url: links[i].url,
+      snippet: snippets[i] || "",
+    });
+  }
+
+  // Fallback: try broader link extraction if the class-based approach found nothing
+  if (results.length === 0) {
+    const broadRegex = /<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([^<]{5,})<\/a>/gi;
+    const seen = new Set<string>();
+    while ((match = broadRegex.exec(html)) !== null && results.length < count) {
+      const url = match[1].replace(/&amp;/g, "&");
+      const title = stripHtml(match[2]).trim();
+      // Skip DDG internal links
+      if (url.includes("duckduckgo.com")) continue;
+      if (seen.has(url)) continue;
+      seen.add(url);
+      if (url && title) {
+        results.push({ title, url, snippet: "" });
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
  * Detect if query is about finance/stocks/ETFs/markets.
  */
 function isFinancialQuery(query: string): boolean {
@@ -127,7 +236,7 @@ function isFinancialQuery(query: string): boolean {
 
 /**
  * Search via DuckDuckGo Instant Answer API.
- * Works from CF Workers — no bot detection. Limited to instant answers / related topics.
+ * Works from CF Workers — limited to instant answers / related topics.
  */
 async function searchDDGInstant(query: string): Promise<SearchResult[]> {
   try {
@@ -210,7 +319,6 @@ async function searchDDGInstant(query: string): Promise<SearchResult[]> {
 /**
  * Search via Wikipedia API.
  * Reliable from CF Workers — no rate limiting, no bot detection.
- * Great for factual, entity, and concept queries.
  */
 async function searchWikipedia(
   query: string,
@@ -250,11 +358,10 @@ async function searchWikipedia(
 
 /**
  * Search via Yahoo Finance API.
- * Free, no API key, works from CF Workers. Returns stock/ETF/fund data.
+ * Free, no API key, works from CF Workers.
  */
 async function searchYahooFinance(query: string): Promise<SearchResult[]> {
   try {
-    // Extract potential ticker symbols
     const words = query.toUpperCase().split(/\s+/);
     const potentialTickers = words.filter((w) => /^[A-Z]{1,6}(\.[A-Z]{1,2})?$/.test(w));
     const searchTerm = potentialTickers.length > 0 ? potentialTickers[0] : query.split(/\s+/).slice(0, 2).join(" ");
@@ -287,7 +394,6 @@ async function searchYahooFinance(query: string): Promise<SearchResult[]> {
 
     const results: SearchResult[] = [];
 
-    // Add quote results
     if (data.quotes) {
       for (const q of data.quotes.slice(0, 3)) {
         const name = q.longname || q.shortname || q.symbol;
@@ -299,7 +405,6 @@ async function searchYahooFinance(query: string): Promise<SearchResult[]> {
       }
     }
 
-    // Add news results
     if (data.news) {
       for (const n of data.news.slice(0, 3)) {
         if (n.title && n.link) {

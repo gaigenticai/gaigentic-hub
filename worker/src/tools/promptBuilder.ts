@@ -84,6 +84,7 @@ Wrong: "I will start by searching for..." → Right: |||TOOL_CALL||| {"tool": "w
 - CONFIDENCE: Keep gathering evidence until you can make a well-supported recommendation
 - TRACEABILITY: Every score and conclusion must trace back to tool results or input data
 - NEVER fabricate tool results — if a tool returns unexpected data, report it honestly
+- WEB SEARCH QUERIES: Use plain natural language. NEVER use site:, OR, AND, inurl:, intitle: operators — they are not supported and WILL fail. Good: "Finexus Inc startup funding". Bad: "Finexus Inc site:linkedin.com OR site:bloomberg.com"
 </operating_principles>
 
 </tool_infrastructure>
