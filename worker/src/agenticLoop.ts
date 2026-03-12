@@ -258,6 +258,21 @@ export function runAgenticLoop(params: AgenticLoopParams): ReadableStream {
           allSteps.push({ ...reasoningStep });
 
           if (!toolCall) {
+            // Check if the response was TRUNCATED mid-tool-call
+            // (happens when max_tokens is too low — the LLM starts a tool call but gets cut off)
+            const hasTruncatedToolCall = responseText.includes(TOOL_CALL_OPEN) && !responseText.includes(TOOL_CALL_CLOSE);
+            if (hasTruncatedToolCall && iteration <= MAX_ITERATIONS - 1) {
+              // Re-prompt: ask the LLM to complete just the tool call
+              conversationMessages.push(
+                { role: "assistant", content: responseText },
+                {
+                  role: "user",
+                  content: `Your response was cut off mid-tool-call. Please output ONLY the complete tool call block. Do not repeat your analysis — just the tool call:\n\n|||TOOL_CALL|||\n{"tool": "tool_name", "params": {...}}\n|||END_TOOL_CALL|||`,
+                },
+              );
+              continue;
+            }
+
             // Check if the model WANTED to use tools but didn't format the call
             // (common with weaker models — they narrate "I will search..." instead of calling)
             const narratesToolIntent = /\b(i will|i'll|let me|proceeding|i'?m going to|starting by|first,? i)\b.{0,60}\b(search|retrieve|fetch|look up|query|check|analyze|use|call|verify|screen|assess|calculate)\b/i.test(responseText);
@@ -271,6 +286,20 @@ export function runAgenticLoop(params: AgenticLoopParams): ReadableStream {
                 {
                   role: "user",
                   content: `STOP. You described what you plan to do, but you did NOT actually call a tool. You MUST output a tool call block RIGHT NOW. Do not explain, do not plan — just call the tool.\n\nFormat:\n|||TOOL_CALL|||\n{"tool": "${exampleTool}", "params": {"${exampleParam}": "your value"}}\n|||END_TOOL_CALL|||\n\nAvailable tools: ${tools.map((t) => t.name).join(", ")}.\n\nOUTPUT THE TOOL CALL BLOCK NOW:`,
+                },
+              );
+              continue;
+            }
+
+            // Check if the "final response" is suspiciously short — the LLM likely needs another iteration
+            const hasHadToolCalls = allSteps.some((s) => s.step_type !== "llm_reasoning");
+            if (hasHadToolCalls && responseText.length < 500 && iteration <= MAX_ITERATIONS - 1) {
+              // Too short for a real report — push the LLM to write a proper analysis
+              conversationMessages.push(
+                { role: "assistant", content: responseText },
+                {
+                  role: "user",
+                  content: `Your response is too short (${responseText.length} chars). Based on all the tool results above, please write a COMPREHENSIVE final analysis report. Include:\n- Key findings from each tool\n- Risk assessment with specific scores\n- Visual blocks: |||KPI|||, |||TABLE|||, |||CHART||| where appropriate\n- Clear recommendation\n\nWrite the full report NOW:`,
                 },
               );
               continue;

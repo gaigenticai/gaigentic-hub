@@ -351,12 +351,12 @@ State your assumptions clearly in the output, but ALWAYS deliver a complete, act
   }
 
   // Parse guardrails
-  let maxTokens = 2048;
+  let maxTokens = 4096; // Need 4096+ for agentic tool-calling loops
   let temperature = 0.7;
   if (agent.guardrails) {
     try {
       const guardrails = JSON.parse(agent.guardrails);
-      maxTokens = guardrails.max_tokens || maxTokens;
+      maxTokens = Math.max(guardrails.max_tokens || maxTokens, 4096); // Floor at 4096 for agentic
       temperature = guardrails.temperature ?? temperature;
     } catch {
       // ignore
